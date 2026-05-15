@@ -21,8 +21,9 @@ export async function runScan(team_id: string, session_id: string) {
 
     renderer.log(`[Scanner] Starting session ${session_id}. Total files: ${files.length}, Processed nodes: ${processedNodeIds.size}`);
 
-    renderer.update(SCAN_TASK_KEY, 'Total Scan', 0, files.length, 'items');
-
+    // Initial scan with Retry Queue
+    const retryQueue: any[] = [];
+    
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       renderer.update(SCAN_TASK_KEY, 'Total Scan', i + 1, files.length, 'items');
@@ -48,17 +49,50 @@ export async function runScan(team_id: string, session_id: string) {
       }
 
       renderer.log(`[Scanner] Processing ${pagesToProcess.length}/${pages.length} pages for ${file.file_name}`);
-      await processNodesRecursively(file.file_key, file.file_name || 'Untitled', token, session_id, pagesToProcess, 0, null, 10, null, processedNodeIds);
+      await processNodesRecursively(file.file_key, file.file_name || 'Untitled', token, session_id, pagesToProcess, 0, null, 10, null, processedNodeIds, retryQueue);
       
       const currentCount = await query('SELECT COUNT(*) AS total FROM nodes WHERE session_id = ?', session_id);
       await exec('UPDATE scan_sessions SET nodes_count = ? WHERE id = ?', currentCount[0]?.total || 0, session_id);
     }
 
+    // RETRY PHASE: Process anything that failed during the main loop
+    if (retryQueue.length > 0) {
+      renderer.log(`\n\x1b[33m[Scanner] Starting Retry Phase for ${retryQueue.length} failed chunks...\x1b[0m`);
+      
+      // Process retries sequentially to give them max bandwidth and avoid further failures
+      for (let j = 0; j < retryQueue.length; j++) {
+        const task = retryQueue[j];
+        renderer.log(`[Scanner] Retrying ${task.pageName || task.fileName} (${j + 1}/${retryQueue.length})...`);
+        
+        try {
+          const chunkRes = await getFigmaNodesStream(task.fileKey, token, task.ids, task.fetchDepth);
+          const totalBytes = parseInt(chunkRes.headers['content-length'] || '0');
+          
+          const onNodeFound = async (nodeId: string, nodeData: any) => {
+            await writeNodeBatch(session_id, task.fileKey, task.fileName, nodeData, task.parentId, task.baseDepth, task.pageName);
+            processedNodeIds.add(nodeId);
+          };
+
+          await parseFigmaStream(chunkRes.data, `Retry: ${task.pageName || 'Nodes'}`, onNodeFound, totalBytes);
+          renderer.log(`\x1b[32m✔ Retry successful for ${task.pageName || task.fileName}\x1b[0m`);
+        } catch (retryErr: any) {
+          renderer.log(`\x1b[31m✘ Retry failed again: ${retryErr.message}\x1b[0m`);
+        }
+      }
+    }
+
     renderer.remove(SCAN_TASK_KEY);
 
     const countRes = await query('SELECT COUNT(id) AS total FROM nodes WHERE session_id = ?', session_id);
-    await exec('UPDATE scan_sessions SET status = ?, nodes_count = ? WHERE id = ?', 'completed', countRes[0]?.total || 0, session_id);
-    renderer.log(`[Scanner] Session ${session_id} finished.`);
+    const finalStatus = retryQueue.length === 0 ? 'completed' : 'failed';
+    
+    await exec('UPDATE scan_sessions SET status = ?, nodes_count = ? WHERE id = ?', finalStatus, countRes[0]?.total || 0, session_id);
+    
+    if (finalStatus === 'completed') {
+      renderer.log(`\x1b[32m[Scanner] Session ${session_id} finished successfully.\x1b[0m`);
+    } else {
+      renderer.log(`\x1b[31m[Scanner] Session ${session_id} finished with ${retryQueue.length} errors.\x1b[0m`);
+    }
 
   } catch (error: any) {
     renderer.log(`[Scanner] Fatal error: ${error}`);
