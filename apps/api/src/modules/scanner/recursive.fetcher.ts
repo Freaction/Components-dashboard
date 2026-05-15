@@ -1,6 +1,7 @@
 import { getFigmaNodesStream } from './figma.api';
 import { parseFigmaStream } from './parser.service';
 import { writeNodeBatch } from './db.writer';
+import { renderer } from './internal/progress.renderer';
 
 const MAX_CONCURRENT_PAGES = 3;
 
@@ -16,7 +17,6 @@ export async function processNodesRecursively(
   pageName: string | null = null,
   processedNodeIds: Set<string> = new Set()
 ): Promise<void> {
-  // Filter out nodes already processed in this session to prevent duplication
   const remainingNodes = nodes.filter(n => !processedNodeIds.has(n.id));
   if (remainingNodes.length === 0) return;
 
@@ -27,18 +27,18 @@ export async function processNodesRecursively(
 
   for (let i = 0; i < nodeChunks.length; i += concurrency) {
     const batch = nodeChunks.slice(i, i + concurrency);
-    
+
     await Promise.all(batch.map(async (chunk, batchIdx) => {
       const ids = chunk.map(p => p.id).join(',');
-      const logPrefix = baseDepth === 0 ? `[Chunk ${i + batchIdx + 1}/${nodeChunks.length}]` : `[Depth ${baseDepth}]`;
+      const pageOrChunkName = pageName || (baseDepth === 0 ? chunk.map(c => c.name).join(', ') : `Sub-nodes`);
+      const logPrefix = pageOrChunkName.substring(0, 20); // Keep it short
 
       try {
         const fetchDepth = baseDepth === 0 ? 1 : undefined;
         const chunkRes = await getFigmaNodesStream(fileKey, token, ids, fetchDepth);
-        
-        const childTasks: { nodeId: string; nodeData: any; pageName: string }[] = [];
+        const totalBytes = parseInt(chunkRes.headers['content-length'] || '0');
+        const childTasks: { nodeId: string; childNodes: { id: string; name: string }[]; pageName: string }[] = [];
 
-        // Define how to handle each node as it arrives
         const onNodeFound = async (nodeId: string, nodeData: any) => {
           await writeNodeBatch(session_id, fileKey, fileName, nodeData, parentId, baseDepth, pageName);
           processedNodeIds.add(nodeId);
@@ -47,12 +47,13 @@ export async function processNodesRecursively(
             const children = nodeData.document?.children || [];
             if (children.length > 0) {
               const currentPageName = pageName || chunk.find(c => c.id === nodeId)?.name || 'Untitled Page';
-              childTasks.push({ nodeId, nodeData, pageName: currentPageName });
+              const childNodes = children.map((c: any) => ({ id: c.id, name: c.name }));
+              childTasks.push({ nodeId, childNodes, pageName: currentPageName });
             }
           }
         };
 
-        const chunkData = await parseFigmaStream(chunkRes.data, logPrefix, onNodeFound);
+        const chunkData = await parseFigmaStream(chunkRes.data, logPrefix, onNodeFound, totalBytes);
 
         if (!chunkData.streamed && chunkData.nodes) {
           for (const [nodeId, nodeData] of Object.entries<any>(chunkData.nodes)) {
@@ -60,17 +61,13 @@ export async function processNodesRecursively(
           }
         }
 
-        // Process children AFTER the current level's stream is finished for this chunk
-        // but before moving to the next chunk concurrency-wise
         if (childTasks.length > 0) {
-          await Promise.all(childTasks.map(task => {
-            const children = task.nodeData.document?.children || [];
-            const childNodes = children.map((c: any) => ({ id: c.id, name: c.name }));
-            return processNodesRecursively(fileKey, fileName, token, session_id, childNodes, baseDepth + 1, task.nodeId, 50, task.pageName, processedNodeIds);
-          }));
+          for (const task of childTasks) {
+            await processNodesRecursively(fileKey, fileName, token, session_id, task.childNodes, baseDepth + 1, task.nodeId, 10, task.pageName, processedNodeIds);
+          }
         }
       } catch (error: any) {
-        console.error(`${logPrefix} Failed:`, error.message);
+        renderer.log(`${logPrefix} Failed: ${error.message}`);
       }
     }));
   }

@@ -53,64 +53,87 @@ export const TeamsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isScanningAll, setIsScanningAll] = useState(false);
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
 
-  const fetchTeams = useCallback(async () => {
+  const fetchTeams = useCallback(async (signal?: AbortSignal) => {
     console.log('[TeamsContext] Fetching teams...');
     try {
       const start = Date.now();
-      const res = await fetch('http://127.0.0.1:3001/teams');
+      const res = await fetch('http://127.0.0.1:3001/teams', { signal });
       const data = await res.json();
       console.log(`[TeamsContext] Teams received in ${Date.now() - start}ms:`, data.teams?.length);
       setTeams(data.teams);
-    } catch (e) {
+    } catch (e: any) {
+      if (e.name === 'AbortError') return;
       console.error('[TeamsContext] Failed to fetch teams:', e);
     }
   }, []);
 
-  const fetchTeamDetails = useCallback(async () => {
+  const fetchTeamDetails = useCallback(async (signal?: AbortSignal) => {
     if (!selectedTeam) return;
-    const res = await fetch(`http://127.0.0.1:3001/teams/${selectedTeam}`);
-    const data = await res.json();
-    setFiles(data.files || []);
+    try {
+      const res = await fetch(`http://127.0.0.1:3001/teams/${selectedTeam}`, { signal });
+      const data = await res.json();
+      setFiles(data.files || []);
+    } catch (e: any) {
+      if (e.name === 'AbortError') return;
+      console.error(e);
+    }
   }, [selectedTeam]);
 
-  const fetchSessions = useCallback(async () => {
+  const fetchSessions = useCallback(async (signal?: AbortSignal) => {
     if (!selectedTeam) return;
-    const res = await fetch(`http://127.0.0.1:3001/teams/${selectedTeam}/sessions`);
-    const data = await res.json();
-    setSessions(data.sessions || []);
+    try {
+      const res = await fetch(`http://127.0.0.1:3001/teams/${selectedTeam}/sessions`, { signal });
+      const data = await res.json();
+      setSessions(data.sessions || []);
+    } catch (e: any) {
+      if (e.name === 'AbortError') return;
+      console.error(e);
+    }
   }, [selectedTeam]);
 
-  const fetchRootNodes = useCallback(async (sid: string, types: string[] = []) => {
+  const fetchRootNodes = useCallback(async (sid: string, types: string[] = [], signal?: AbortSignal) => {
     console.log(`[TeamsContext] Fetching root nodes for session ${sid}...`);
     setIsLoadingRoots(true);
     try {
       const start = Date.now();
       const queryString = getNodesQueryString(sid, types);
-      const res = await fetch(`http://127.0.0.1:3001/nodes?${queryString}`);
+      const res = await fetch(`http://127.0.0.1:3001/nodes?${queryString}`, { signal });
       const data = await res.json();
       console.log(`[TeamsContext] Root nodes received in ${Date.now() - start}ms:`, data.nodes?.length);
       setRootNodes(data.nodes || []);
-    } catch (e) {
+    } catch (e: any) {
+      if (e.name === 'AbortError') return;
       console.error('[TeamsContext] Failed to fetch root nodes:', e);
     }
     setIsLoadingRoots(false);
   }, []);
 
-  useEffect(() => { fetchTeams(); }, [fetchTeams]);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchTeams(controller.signal);
+    return () => controller.abort();
+  }, [fetchTeams]);
 
   useEffect(() => {
     if (selectedTeam) {
-      fetchTeamDetails();
-      fetchSessions();
+      const controller = new AbortController();
+      fetchTeamDetails(controller.signal);
+      fetchSessions(controller.signal);
       setSelectedSession(null);
       setSelectedNode(null);
+      return () => controller.abort();
     }
   }, [selectedTeam, fetchTeamDetails, fetchSessions]);
 
   useEffect(() => {
     if (selectedSession) {
-      fetchRootNodes(selectedSession, typeFilter);
+      const controller = new AbortController();
+      fetchRootNodes(selectedSession, typeFilter, controller.signal);
       setSelectedNode(null);
+      return () => {
+        controller.abort();
+        setRootNodes([]); // Clear heavy data for GC
+      };
     } else {
       setRootNodes([]);
     }
@@ -126,7 +149,7 @@ export const TeamsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .then(res => res.json())
         .then(data => setSessions(data.sessions || []))
         .catch(console.error);
-    }, 1500);
+    }, 500);
 
     return () => clearInterval(interval);
   }, [selectedTeam, hasActiveScan]);
@@ -179,20 +202,38 @@ export const TeamsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const startScan = async () => {
     if (!selectedTeam) return;
-    await fetch(`http://127.0.0.1:3001/teams/${selectedTeam}/scan`, { method: 'POST' });
-    fetchSessions();
+    try {
+      // Optimistic UI update: add a pending session locally or just refresh
+      await fetch(`http://127.0.0.1:3001/teams/${selectedTeam}/scan`, { method: 'POST' });
+      fetchSessions(); // Trigger refresh
+    } catch (e) {
+      console.error('Failed to start scan:', e);
+    }
   };
 
   const resumeSession = async (sid: string) => {
     if (!selectedTeam) return;
-    await fetch(`http://127.0.0.1:3001/teams/${selectedTeam}/sessions/${sid}/resume`, { method: 'POST' });
-    fetchSessions();
+    try {
+      // Optimistically update the session status in UI
+      setSessions(prev => prev.map(s => s.id === sid ? { ...s, status: 'pending' } : s));
+      
+      await fetch(`http://127.0.0.1:3001/teams/${selectedTeam}/sessions/${sid}/resume`, { method: 'POST' });
+      // We don't await fetchSessions here to avoid UI lag
+      fetchSessions(); 
+    } catch (e) {
+      console.error('Failed to resume session:', e);
+      fetchSessions(); // Revert on error
+    }
   };
 
   const deleteSession = async (sid: string) => {
-    await fetch(`http://127.0.0.1:3001/teams/${selectedTeam}/sessions/${sid}`, { method: 'DELETE' });
-    if (selectedSession === sid) setSelectedSession(null);
-    fetchSessions();
+    try {
+      await fetch(`http://127.0.0.1:3001/teams/${selectedTeam}/sessions/${sid}`, { method: 'DELETE' });
+      if (selectedSession === sid) setSelectedSession(null);
+      fetchSessions();
+    } catch (e) {
+      console.error('Failed to delete session:', e);
+    }
   };
 
   const scanAll = async () => {
@@ -209,8 +250,12 @@ export const TeamsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const deleteFileNodes = async (fileKey: string) => {
     if (!selectedSession) return;
-    await fetch(`http://127.0.0.1:3001/nodes/session/${selectedSession}/file/${fileKey}`, { method: 'DELETE' });
-    fetchRootNodes(selectedSession, typeFilter);
+    try {
+      await fetch(`http://127.0.0.1:3001/nodes/session/${selectedSession}/file/${fileKey}`, { method: 'DELETE' });
+      fetchRootNodes(selectedSession, typeFilter);
+    } catch (e) {
+      console.error('Failed to delete file nodes:', e);
+    }
   };
 
   const value = {

@@ -30,7 +30,7 @@ export const SearchView: React.FC = () => {
     fetchTeams();
   }, []);
 
-  const performSearch = useCallback(async () => {
+  const performSearch = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
     const startTime = performance.now();
     console.log(`[SearchView] Starting search for "${query}"...`);
@@ -45,27 +45,41 @@ export const SearchView: React.FC = () => {
       }
       const sortValue = Array.isArray(sortBy) ? sortBy[0] : sortBy;
       if (sortValue) url.searchParams.append('sort', sortValue);
-      
-      const res = await fetch(url.toString());
+
+      const res = await fetch(url.toString(), { signal });
       const data = await res.json();
       const duration = (performance.now() - startTime).toFixed(1);
       console.log(`[SearchView] Search completed in ${duration}ms. Results: ${data.nodes?.length || 0}`);
       setResults(data.nodes || []);
-    } catch (e) {
-      console.error('Search error:', e);
+    } catch (e: any) {
+      if (e.name === 'AbortError') {
+        console.log('[SearchView] Search request aborted');
+      } else {
+        console.error('Search error:', e);
+      }
     } finally {
       setIsLoading(false);
     }
   }, [query, typeFilter, teamFilter, sortBy]);
 
   useEffect(() => {
-    const hasActiveFilters = query.length >= 3 || typeFilter.length > 0 || teamFilter.length > 0;
+    const controller = new AbortController();
+    const hasActiveFilters = query.length >= 2 || typeFilter.length > 0 || teamFilter.length > 0;
+
     if (hasActiveFilters) {
-      const debounce = setTimeout(performSearch, 500);
-      return () => clearTimeout(debounce);
+      const debounce = setTimeout(() => performSearch(controller.signal), 500);
+      return () => {
+        clearTimeout(debounce);
+        controller.abort();
+      };
     } else {
       setResults([]);
     }
+
+    return () => {
+      controller.abort();
+      setResults([]); // Explicit cleanup for GC
+    };
   }, [query, typeFilter, teamFilter, sortBy, performSearch]);
 
   return (
@@ -98,7 +112,7 @@ export const SearchView: React.FC = () => {
               isLoading={isLoading}
               selectedNode={selectedNode}
               setSelectedNode={setSelectedNode}
-              hasSearched={query.length >= 3 || typeFilter.length > 0 || teamFilter.length > 0}
+              hasSearched={query.length >= 2 || typeFilter.length > 0 || teamFilter.length > 0}
             />
           </div>
         </div>

@@ -1,10 +1,12 @@
 export const NODE_TYPE_OPTIONS = [
   { label: 'Page', value: 'CANVAS' },
+  { label: 'Section', value: 'SECTION' },
   { label: 'Instance (Usage)', value: 'INSTANCE' },
   { label: 'Component (Master)', value: 'COMPONENT' },
   { label: 'Variant', value: 'VARIANT' },
-  { label: 'Frame', value: 'FRAME' },
+  { label: 'Frame / Group', value: 'FRAME' },
   { label: 'Text', value: 'TEXT' },
+  { label: 'Vector / Shapes', value: 'VECTOR' },
 ];
 
 export const formatTypeFilterParams = (url: URL | string, types: string[]) => {

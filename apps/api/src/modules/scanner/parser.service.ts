@@ -2,45 +2,52 @@ import { chain } from 'stream-chain';
 import { parser } from 'stream-json';
 import { pick } from 'stream-json/filters/pick.js';
 import { streamObject } from 'stream-json/streamers/stream-object.js';
-import { Readable, PassThrough } from 'stream';
+import { Readable } from 'stream';
 
-const STREAM_THRESHOLD_MB = 50; // Increased to 50MB for better performance on medium files
+import { chain } from 'stream-chain';
+import { parser } from 'stream-json';
+import { pick } from 'stream-json/filters/pick.js';
+import { streamObject } from 'stream-json/streamers/stream-object.js';
+import { Readable } from 'stream';
+import { renderer } from './internal/progress.renderer';
+
+const STREAM_THRESHOLD_MB = 50;
 
 export async function parseFigmaStream(
-  stream: any, 
-  logPrefix: string = '', 
-  onNode?: (id: string, data: any) => Promise<void>
+  stream: any,
+  logPrefix: string = '',
+  onNode?: (id: string, data: any) => Promise<void>,
+  totalBytes: number = 0
 ): Promise<any> {
+  const taskKey = `download:${logPrefix}`;
+  renderer.update(taskKey, logPrefix, 0, totalBytes, 'bytes');
+
   return new Promise((resolve, reject) => {
     let downloadedBytes = 0;
     const initialChunks: Buffer[] = [];
     let isStreamed = false;
     let pipelineStarted = false;
-    let lastLoggedMB = -1;
 
     const logProgress = (bytes: number) => {
       downloadedBytes += bytes;
-      const downloadedMB = downloadedBytes / (1024 * 1024);
-      
-      if (Math.floor(downloadedMB / 5) > lastLoggedMB || (isStreamed && lastLoggedMB < 0)) {
-        const status = isStreamed ? '🛡️ STREAM' : '⚡ FAST';
-        process.stdout.write(`\r[Parser] ${logPrefix.padEnd(15)} | ${status} | ${downloadedMB.toFixed(1)}MB`.padEnd(50));
-        lastLoggedMB = Math.floor(downloadedMB / 5);
-      }
+      renderer.update(taskKey, logPrefix, downloadedBytes, totalBytes, 'bytes');
     };
-    
+
     const onData = (chunk: Buffer) => {
-      initialChunks.push(chunk); 
+      initialChunks.push(chunk);
       logProgress(chunk.length);
-      
+
       const downloadedMB = downloadedBytes / (1024 * 1024);
-      
+
       if (!isStreamed && downloadedMB > STREAM_THRESHOLD_MB) {
         isStreamed = true;
         
         if (onNode && !pipelineStarted) {
           pipelineStarted = true;
           stream.removeListener('data', onData);
+          if (typeof stream.pause === 'function') {
+            stream.pause();
+          }
           startStreamingPipeline();
         }
       }
@@ -65,20 +72,21 @@ export async function parseFigmaStream(
           streamObject()
         ]);
 
-        // Sequential processing of nodes from the stream
         for await (const data of pipeline) {
           if (onNode) {
             try {
               await onNode(data.key, data.value);
             } catch (e) {
-              console.error(`\n[Parser] Error in onNode handler:`, e);
+              renderer.log(`\n[Parser] Error in onNode handler: ${e}`);
             }
           }
         }
 
+        renderer.remove(taskKey);
         resolve({ streamed: true });
       } catch (e) {
-        console.error(`\n[Parser] Pipeline error:`, e);
+        renderer.remove(taskKey);
+        renderer.log(`\n[Parser] Pipeline error: ${e}`);
         reject(e);
       }
     };
@@ -86,29 +94,33 @@ export async function parseFigmaStream(
     stream.on('data', onData);
 
     stream.on('end', async () => {
-      process.stdout.write(`\n`);
-      
       if (!isStreamed) {
         try {
           const fullBuffer = Buffer.concat(initialChunks);
+          renderer.remove(taskKey);
           if (fullBuffer.length === 0) {
             resolve({});
             return;
           }
           resolve(JSON.parse(fullBuffer.toString()));
         } catch (e) {
-          console.error(`\n[Parser] JSON Parse Error:`, e);
+          renderer.remove(taskKey);
+          renderer.log(`\n[Parser] JSON Parse Error: ${e}`);
           reject(e);
         }
       } else if (!pipelineStarted && onNode) {
         pipelineStarted = true;
         startStreamingPipeline();
       } else if (isStreamed && !onNode) {
+        renderer.remove(taskKey);
         resolve({ streamed: true });
       }
     });
 
-    stream.on('error', (err: any) => reject(err));
+    stream.on('error', (err: any) => {
+      renderer.remove(taskKey);
+      reject(err);
+    });
   });
 }
 

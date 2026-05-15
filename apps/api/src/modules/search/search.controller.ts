@@ -8,7 +8,11 @@ export const searchRoutes = new Hono()
       const type = c.req.query('type');
       const team_id = c.req.query('team_id');
 
-      const results = await searchGlobalNodes({ q, type, team_id });
+      const results = await searchGlobalNodes({ 
+        q, 
+        type, 
+        team_id
+      });
       
       return c.json({ 
         success: true, 

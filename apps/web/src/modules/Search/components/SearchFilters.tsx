@@ -31,15 +31,33 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
 }) => {
   const teamOptions = availableTeams.map(t => ({ label: t.name, value: String(t.id) }));
   const sortOptions = [
-    { label: 'By Relevance (Newest Files)', value: 'relevance' },
-    { label: 'Alphabetical', value: 'newest' } 
+    { label: 'Relevance (Search Only)', value: 'relevance' },
+    { label: 'Newest Files First', value: 'newest' },
+    { label: 'Alphabetical', value: 'alphabetical' }
   ];
+
+  const handleClearAll = () => {
+    setQuery('');
+    setTypeFilter([]);
+    setTeamFilter([]);
+    setSortBy('relevance');
+  };
 
   return (
     <div className="history-panel" style={{ padding: 'var(--space-4)', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Text variant="xs" weight="bold" color="tertiary" style={{ textTransform: 'uppercase', marginBottom: 'var(--space-4)', display: 'block', flexShrink: 0 }}>
-        Analytics & Filters
-      </Text>
+      <Flex align="center" justify="space-between" style={{ marginBottom: 'var(--space-4)' }}>
+        <Text variant="xs" weight="bold" color="tertiary" style={{ textTransform: 'uppercase' }}>
+          Analytics & Filters
+        </Text>
+        <Text 
+          variant="xs" 
+          color="accent" 
+          style={{ cursor: 'pointer', textDecoration: 'underline' }}
+          onClick={handleClearAll}
+        >
+          Clear All
+        </Text>
+      </Flex>
       
       <Flex direction="column" gap={4} style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }} className="hide-scrollbar">
         <div>
