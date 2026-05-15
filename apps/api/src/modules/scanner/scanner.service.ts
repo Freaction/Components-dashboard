@@ -1,8 +1,9 @@
 import { exec, query } from '../../core/db';
-import { getFigmaFileStream } from './figma.api';
+import { getFigmaFileStream, getFigmaNodesStream } from './figma.api';
 import { parseFigmaStream } from './parser.service';
 import { processNodesRecursively } from './recursive.fetcher';
 import { renderer } from './internal/progress.renderer';
+import { calculateSessionStats, writeNodeBatch } from './db.writer';
 
 export async function runScan(team_id: string, session_id: string) {
   const SCAN_TASK_KEY = 'total-scan';
@@ -59,7 +60,6 @@ export async function runScan(team_id: string, session_id: string) {
     if (retryQueue.length > 0) {
       renderer.log(`\n\x1b[33m[Scanner] Starting Retry Phase for ${retryQueue.length} failed chunks...\x1b[0m`);
       
-      // Process retries sequentially to give them max bandwidth and avoid further failures
       for (let j = 0; j < retryQueue.length; j++) {
         const task = retryQueue[j];
         renderer.log(`[Scanner] Retrying ${task.pageName || task.fileName} (${j + 1}/${retryQueue.length})...`);
@@ -89,7 +89,8 @@ export async function runScan(team_id: string, session_id: string) {
     await exec('UPDATE scan_sessions SET status = ?, nodes_count = ? WHERE id = ?', finalStatus, countRes[0]?.total || 0, session_id);
     
     if (finalStatus === 'completed') {
-      renderer.log(`\x1b[32m[Scanner] Session ${session_id} finished successfully.\x1b[0m`);
+      await calculateSessionStats(session_id);
+      renderer.log(`\x1b[32m[Scanner] Session ${session_id} finished successfully and stats calculated.\x1b[0m`);
     } else {
       renderer.log(`\x1b[31m[Scanner] Session ${session_id} finished with ${retryQueue.length} errors.\x1b[0m`);
     }

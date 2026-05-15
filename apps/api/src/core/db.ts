@@ -127,6 +127,16 @@ export async function initDB() {
     FOREIGN KEY(session_id) REFERENCES scan_sessions(id) ON DELETE CASCADE
   )`);
 
+  // 4.2. Pre-calculated property stats for performance
+  await exec(`CREATE TABLE IF NOT EXISTS session_property_stats (
+    session_id TEXT,
+    property TEXT,
+    value TEXT,
+    count INTEGER,
+    PRIMARY KEY (session_id, property, value),
+    FOREIGN KEY(session_id) REFERENCES scan_sessions(id) ON DELETE CASCADE
+  )`);
+
   // Migration: Move existing data from nodes to node_metadata if not already moved
   // (Migration code removed after successful execution)
 

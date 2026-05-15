@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Flex, ScrollArea, Text } from '../../components/ui';
 import { NodeDetails } from '../../components/NodeDetails';
+import { SearchStats } from './components/SearchStats';
 import { SearchFilters } from './components/SearchFilters';
 import { GroupedResultsTree } from './components/GroupedResultsTree';
 
@@ -13,6 +14,7 @@ export const SearchView: React.FC = () => {
   const [sortBy, setSortBy] = useState<string>('relevance');
   const [availableTeams, setAvailableTeams] = useState<any[]>([]);
   const [results, setResults] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedNode, setSelectedNode] = useState<any | null>(null);
 
@@ -29,6 +31,27 @@ export const SearchView: React.FC = () => {
   useEffect(() => {
     fetchTeams();
   }, []);
+
+  const fetchStats = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const url = new URL('http://127.0.0.1:3001/search/global/stats');
+      if (query) url.searchParams.append('q', query);
+      if (typeFilter.length > 0) {
+        typeFilter.forEach(t => url.searchParams.append('type', t));
+      }
+      if (teamFilter.length > 0) {
+        teamFilter.forEach(id => url.searchParams.append('team_id', id));
+      }
+
+      const res = await fetch(url.toString(), { signal });
+      const data = await res.json();
+      setStats(data.stats || null);
+    } catch (e: any) {
+      if (e.name !== 'AbortError') {
+        console.error('Stats fetch error:', e);
+      }
+    }
+  }, [query, typeFilter, teamFilter]);
 
   const performSearch = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
@@ -51,6 +74,9 @@ export const SearchView: React.FC = () => {
       const duration = (performance.now() - startTime).toFixed(1);
       console.log(`[SearchView] Search completed in ${duration}ms. Results: ${data.nodes?.length || 0}`);
       setResults(data.nodes || []);
+      
+      // Fetch stats only when search completes
+      fetchStats(signal);
     } catch (e: any) {
       if (e.name === 'AbortError') {
         console.log('[SearchView] Search request aborted');
@@ -60,7 +86,7 @@ export const SearchView: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [query, typeFilter, teamFilter, sortBy]);
+  }, [query, typeFilter, teamFilter, sortBy, fetchStats]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -74,11 +100,11 @@ export const SearchView: React.FC = () => {
       };
     } else {
       setResults([]);
+      setStats(null);
     }
 
     return () => {
       controller.abort();
-      setResults([]); // Explicit cleanup for GC
     };
   }, [query, typeFilter, teamFilter, sortBy, performSearch]);
 
@@ -121,11 +147,15 @@ export const SearchView: React.FC = () => {
           <ScrollArea>
             {selectedNode ? (
               <div className={styles.detailsContent}>
-                <NodeDetails node={selectedNode} />
+                <NodeDetails node={selectedNode} aggregateStats={stats} />
+              </div>
+            ) : stats ? (
+              <div className={styles.detailsContent}>
+                <SearchStats stats={stats} />
               </div>
             ) : (
               <div className={styles.emptyDetails}>
-                <Text color="tertiary">Select a node to see details</Text>
+                <Text color="tertiary">Select a node or search to see details</Text>
               </div>
             )}
           </ScrollArea>

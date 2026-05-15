@@ -62,3 +62,31 @@ export const getBadgeVariant = (type: string) => {
   if (t === 'FRAME' || t === 'GROUP') return 'secondary';
   return 'slate';
 };
+
+export const stripFigmaId = (name: string): string => {
+  if (!name) return name;
+  // Removes # followed by digits and potentially : and more digits
+  // Also cleans up any trailing colons or noise that Figma sometimes leaves
+  return name
+    .replace(/#\d+[:\d+]*$/, '')
+    .replace(/:$/, '') // Remove trailing colon
+    .trim();
+};
+
+export const formatPropertyValue = (val: any): string => {
+  if (val === null || val === undefined) return 'None';
+  
+  const s = String(val).trim();
+  if (s === '0' || s.toLowerCase() === 'false') return 'False';
+  if (s === '1' || s.toLowerCase() === 'true') return 'True';
+  
+  // If it's a Figma internal ID (e.g., 1:156), it usually refers to an icon or a specific variant
+  // We can leave it as is but strip the ID suffix if it has one
+  return stripFigmaId(s);
+};
+
+export const formatCount = (count: number): string => {
+  if (count >= 1000000) return (count / 1000000).toFixed(1) + 'M';
+  if (count >= 1000) return (count / 1000).toFixed(1) + 'k';
+  return count.toString();
+};

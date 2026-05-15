@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Flex, Text, Badge, Button, ScrollArea } from './ui';
-import { generateFigmaLink, getBadgeType, getBadgeVariant } from '../utils/figmaUtils';
+import { Flex, Text, Badge, Button } from './ui';
+import { generateFigmaLink, getBadgeType, getBadgeVariant, stripFigmaId, formatCount, formatPropertyValue } from '../utils/figmaUtils';
 
 interface NodeDetailsProps {
   node: any;
   defaultFileKey?: string;
   defaultFileName?: string;
+  aggregateStats?: any;
 }
 
-export const NodeDetails: React.FC<NodeDetailsProps> = ({ node, defaultFileKey, defaultFileName }) => {
+export const NodeDetails: React.FC<NodeDetailsProps> = ({ node, defaultFileKey, defaultFileName, aggregateStats }) => {
   const [metadata, setMetadata] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -30,6 +31,8 @@ export const NodeDetails: React.FC<NodeDetailsProps> = ({ node, defaultFileKey, 
     fetchMetadata();
   }, [node?.id, node?.session_id]);
 
+  if (!node) return null;
+
   const getFigmaLink = (n: any, useApp = false) => {
     const fileKey = n.file_key || defaultFileKey || '';
     const fileName = n.file_name || defaultFileName;
@@ -48,7 +51,7 @@ export const NodeDetails: React.FC<NodeDetailsProps> = ({ node, defaultFileKey, 
       if (!data || (Array.isArray(data) && data.length === 0) || (typeof data === 'object' && Object.keys(data).length === 0)) return null;
       
       return (
-        <Flex direction="column" gap={1} style={{ marginBottom: 'var(--space-5)' }}>
+        <Flex direction="column" gap={2} style={{ marginBottom: 'var(--space-6)' }}>
           <Text variant="xs" weight="bold" color="tertiary" style={{ textTransform: 'uppercase' }}>{title}</Text>
           <div style={{ background: 'var(--color-bg-muted)', padding: 'var(--space-3)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
             <pre style={{ margin: 0, fontSize: '10px', whiteSpace: 'pre-wrap', color: 'var(--color-text-secondary)' }}>
@@ -69,15 +72,34 @@ export const NodeDetails: React.FC<NodeDetailsProps> = ({ node, defaultFileKey, 
       if (!props || Object.keys(props).length === 0) return null;
       
       return (
-        <Flex direction="column" gap={1} style={{ marginBottom: 'var(--space-5)' }}>
+        <Flex direction="column" gap={2} style={{ marginBottom: 'var(--space-6)' }}>
           <Text variant="xs" weight="bold" color="tertiary" style={{ textTransform: 'uppercase' }}>Properties / Variants</Text>
           <div style={{ background: 'var(--color-bg-muted)', padding: 'var(--space-3)', borderRadius: 'var(--radius-sm)' }}>
-            {Object.entries(props).map(([key, val]: [string, any]) => (
-              <Flex key={key} justify="space-between" style={{ padding: 'var(--space-1) 0', borderBottom: '1px solid var(--color-border-base)' }}>
-                <Text variant="sm" color="secondary">{key}</Text>
-                <Text variant="sm" weight="medium">{typeof val === 'object' ? val.value || val.type : String(val)}</Text>
-              </Flex>
-            ))}
+            {Object.entries(props).map(([key, val]: [string, any]) => {
+              const cleanKey = stripFigmaId(key);
+              const value = typeof val === 'object' ? val.value || val.type : String(val);
+              
+              // Get global count if available
+              let globalCount = null;
+              if (aggregateStats && aggregateStats[key]) {
+                const statEntry = aggregateStats[key].find((s: any) => String(s.value) === String(value));
+                if (statEntry) globalCount = statEntry.count;
+              }
+
+              return (
+                <Flex key={key} justify="space-between" align="center" style={{ padding: 'var(--space-2) 0', borderBottom: '1px solid var(--color-border-base)' }}>
+                  <Text variant="sm" color="secondary">{cleanKey}</Text>
+                  <Flex gap={2} align="center">
+                    <Text variant="sm" weight="medium">{formatPropertyValue(value)}</Text>
+                    {globalCount !== null && (
+                      <Badge variant="slate" style={{ fontSize: '10px', padding: '0 4px', height: '16px' }}>
+                        {formatCount(globalCount)}
+                      </Badge>
+                    )}
+                  </Flex>
+                </Flex>
+              );
+            })}
           </div>
         </Flex>
       );
@@ -94,7 +116,7 @@ export const NodeDetails: React.FC<NodeDetailsProps> = ({ node, defaultFileKey, 
       
       <Flex direction="column" gap={1} style={{ marginBottom: 'var(--space-5)' }}>
         <Text variant="xs" weight="bold" color="tertiary" style={{ textTransform: 'uppercase' }}>Name</Text>
-        <Text weight="medium">{node.name}</Text>
+        <Text weight="medium">{stripFigmaId(node.name)}</Text>
       </Flex>
 
       <Flex direction="column" gap={1} style={{ marginBottom: 'var(--space-5)' }}>
@@ -107,12 +129,14 @@ export const NodeDetails: React.FC<NodeDetailsProps> = ({ node, defaultFileKey, 
       <Flex direction="column" gap={1} style={{ marginBottom: 'var(--space-5)' }}>
         <Text variant="xs" weight="bold" color="tertiary" style={{ textTransform: 'uppercase' }}>Figma ID</Text>
         <div>
-          <code className="id-code">{node.id}</code>
+          <code className="id-code" style={{ fontSize: '11px', background: 'var(--color-bg-muted)', padding: '2px 4px', borderRadius: '4px' }}>
+            {node.id}
+          </code>
         </div>
       </Flex>
 
       {isLoading ? (
-        <Text variant="xs" color="tertiary">Loading metadata...</Text>
+        <Text variant="xs" color="tertiary" style={{ padding: 'var(--space-4) 0' }}>Loading metadata...</Text>
       ) : metadata && (
         <>
           {renderProperties(metadata.properties_json)}
