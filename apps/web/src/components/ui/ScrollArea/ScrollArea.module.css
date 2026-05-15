@@ -1,0 +1,70 @@
+.container {
+  position: relative;
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.viewport {
+  flex: 1;
+  width: 100%;
+  overflow-y: auto; /* Use auto instead of scroll to avoid unnecessary scrolling if not needed */
+  overflow-x: hidden;
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.viewport::-webkit-scrollbar {
+  display: none; /* Chrome, Safari and Opera */
+}
+
+/* Custom Scrollbar Track (invisible by default, or could be a line) */
+.scrollbarTrack {
+  position: absolute;
+  right: 4px; /* User requested 4px offset from right edge */
+  top: 2px;
+  bottom: 2px;
+  width: 6px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* Custom Scrollbar Thumb */
+.thumb {
+  width: 100%;
+  background: var(--color-slate-300);
+  border-radius: 10px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background 0.2s, width 0.2s, right 0.2s;
+  position: absolute;
+}
+
+.thumb:hover {
+  background: var(--color-slate-400);
+}
+
+.thumbActive {
+  background: var(--color-slate-500) !important;
+}
+
+/* Make thumb slightly wider on hover if desired, but user wants it clean */
+.container:hover .thumb {
+  opacity: 1;
+}
+
+.thumbHidden {
+  opacity: 0;
+}
+
+/* Helper to hide scrollbars on any element while maintaining functionality */
+:global(.hide-scrollbar) {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+:global(.hide-scrollbar)::-webkit-scrollbar {
+  display: none;
+}

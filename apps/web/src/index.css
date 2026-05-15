@@ -1,0 +1,240 @@
+@import './styles/theme.css';
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+:root {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg-app);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-weight: var(--font-normal);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  max-width: 100%;
+  margin: 0 auto;
+  padding: var(--space-4);
+}
+
+.tabs {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.tabs button {
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-base);
+  cursor: pointer;
+  font-weight: var(--font-medium);
+  color: var(--color-text-secondary);
+  transition: all 0.2s;
+}
+
+.tabs button:hover {
+  background: var(--color-bg-muted);
+  color: var(--color-text-primary);
+}
+
+.tabs button.active {
+  background: var(--color-bg-primary);
+  color: var(--color-text-on-primary);
+}
+
+.teams-view {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: var(--space-4);
+  height: calc(100vh - 100px);
+}
+
+.sidebar {
+  background: var(--color-bg-surface);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-base);
+  box-shadow: var(--shadow-base);
+}
+
+.sidebar h3 { 
+  font-size: var(--text-xs); 
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-tertiary);
+  margin-top: 0; 
+  margin-bottom: var(--space-4);
+  font-weight: var(--font-bold);
+}
+
+.sidebar ul { list-style: none; padding: 0; margin: 0; }
+
+.sidebar li {
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  border-radius: var(--radius-base);
+  font-size: var(--text-sm);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background 0.1s;
+}
+
+.sidebar li:hover { background: var(--color-bg-muted); }
+
+.sidebar li.active { 
+  background: var(--color-bg-accent); 
+  color: var(--color-text-accent); 
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: var(--space-4);
+  height: 100%;
+}
+
+.history-panel {
+  background: var(--color-bg-surface);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-base);
+  box-shadow: var(--shadow-base);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 10;
+}
+
+.history-panel h4 { 
+  font-size: var(--text-xs); 
+  text-transform: uppercase; 
+  color: var(--color-text-tertiary); 
+  margin-top: 0; 
+  margin-bottom: var(--space-3);
+  font-weight: var(--font-bold);
+}
+
+.session-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  overflow-y: auto;
+}
+
+.session-card {
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-base);
+  border-radius: var(--radius-base);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--text-sm);
+  background: var(--color-bg-surface);
+  transition: all 0.2s;
+}
+
+.session-card:hover {
+  background: var(--color-bg-app);
+}
+
+.session-card.active { 
+  border-color: var(--color-slate-400); 
+  background: var(--color-bg-accent); 
+}
+
+.del-btn { 
+  background: none; 
+  border: none; 
+  color: var(--color-error); 
+  cursor: pointer; 
+  font-size: 16px; 
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.6;
+}
+
+.del-btn:hover {
+  background: var(--color-red-50);
+  opacity: 1;
+}
+
+.explorer-panel {
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-base);
+  box-shadow: var(--shadow-base);
+  overflow: hidden;
+}
+
+.tree-container {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.tree-node {
+  display: flex;
+  align-items: center;
+  padding: var(--space-1-5) var(--space-2);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  transition: background 0.1s;
+}
+
+.tree-node:hover { background: var(--color-bg-muted); }
+
+.tree-node.is-selected { 
+  background: var(--color-bg-accent); 
+}
+
+
+.file-list { list-style: none; padding: 0; font-size: var(--text-sm); }
+.file-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) var(--space-2);
+  border-bottom: 1px solid var(--color-border-muted);
+}
+
+.file-list li:last-child {
+  border-bottom: none;
+}
+
+.search-result-item:hover {
+  background: var(--color-bg-muted) !important;
+}
+
+.search-result-item.is-selected:hover {
+  background: var(--color-bg-accent) !important;
+}
+
+.empty-state {
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-text-tertiary);
+  font-size: var(--text-base);
+}
+
+/* --- Custom Scrollbars are now handled by ScrollArea component --- */
+/* (removed global scrollbar styles to prevent layout shifts) */
+
+
+

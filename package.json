@@ -1,0 +1,16 @@
+{
+  "name": "components-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n \"API,WEB\" -c \"magenta,cyan\" \"npm run dev --workspace=api\" \"npm run dev --workspace=web\"",
+    "clean": "rimraf node_modules apps/api/node_modules apps/web/node_modules"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "rimraf": "^5.0.0"
+  }
+}

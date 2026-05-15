@@ -1,0 +1,48 @@
+@import './primitives.css';
+
+:root {
+  /* Surface colors */
+  --color-bg-app: var(--color-slate-50);
+  --color-bg-surface: #ffffff;
+  --color-bg-muted: var(--color-slate-100);
+  --color-bg-accent: var(--color-slate-200);
+  --color-bg-primary: var(--color-blue-600);
+  --color-bg-primary-hover: var(--color-blue-700);
+
+  /* Text colors */
+  --color-text-primary: var(--color-slate-800);
+  --color-text-secondary: var(--color-slate-500);
+  --color-text-tertiary: var(--color-slate-400);
+  --color-text-on-primary: #ffffff;
+  --color-text-accent: var(--color-slate-900);
+
+  /* Border colors */
+  --color-border-base: var(--color-slate-200);
+  --color-border-muted: var(--color-slate-100);
+  --color-border-primary: var(--color-blue-600);
+
+  /* Feedback */
+  --color-success: var(--color-emerald-600);
+  --color-error: var(--color-red-600);
+  --color-warning: var(--color-amber-500);
+
+  /* Component specific defaults */
+  --radius-base: var(--radius-md);
+  --shadow-base: var(--shadow-sm);
+}
+
+/* Dark mode placeholder */
+[data-theme='dark'] {
+  --color-bg-app: var(--color-slate-900);
+  --color-bg-surface: var(--color-slate-800);
+  --color-bg-muted: var(--color-slate-700);
+  --color-bg-accent: rgba(37, 99, 235, 0.15);
+  
+  --color-text-primary: var(--color-slate-100);
+  --color-text-secondary: var(--color-slate-400);
+  --color-text-tertiary: var(--color-slate-500);
+  --color-text-on-primary: #ffffff;
+  
+  --color-border-base: var(--color-slate-700);
+  --color-border-muted: var(--color-slate-800);
+}
