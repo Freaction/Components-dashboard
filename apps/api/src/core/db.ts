@@ -1,5 +1,6 @@
 import sqlite3 from 'sqlite3';
 import path from 'path';
+import { AsyncLocalStorage } from 'async_hooks';
 
 // Adjusting path because we moved to src/core/
 const dbPath = path.resolve(process.cwd(), 'data/main.sqlite');
@@ -10,6 +11,52 @@ export const exec = (sql: string, ...params: any[]): Promise<void> =>
 
 export const query = (sql: string, ...params: any[]): Promise<any[]> => 
   new Promise((res, rej) => db.all(sql, ...params, (err: Error | null, rows: any[]) => err ? rej(err) : res(rows)));
+
+const storage = new AsyncLocalStorage<{ depth: number }>();
+let writeQueue: Promise<any> = Promise.resolve();
+
+export async function transaction<T>(work: () => Promise<T>): Promise<T> {
+  const context = storage.getStore();
+
+  // If we are already in a transaction in this execution context, we use SAVEPOINTs (nested)
+  if (context && context.depth > 0) {
+    const id = `sp_${context.depth}`;
+    await exec(`SAVEPOINT ${id}`);
+    context.depth++;
+    try {
+      const result = await work();
+      await exec(`RELEASE SAVEPOINT ${id}`);
+      return result;
+    } catch (error) {
+      await exec(`ROLLBACK TO SAVEPOINT ${id}`);
+      throw error;
+    } finally {
+      context.depth--;
+    }
+  }
+
+  // If this is the root transaction, we queue it to prevent concurrent BEGIN TRANSACTION
+  // We use a shared queue but keep the depth context separate for each chain
+  return new Promise<T>((resolve, reject) => {
+    writeQueue = writeQueue.then(async () => {
+      try {
+        await storage.run({ depth: 1 }, async () => {
+          try {
+            await exec('BEGIN TRANSACTION');
+            const res = await work();
+            await exec('COMMIT');
+            resolve(res);
+          } catch (error) {
+            await exec('ROLLBACK');
+            reject(error);
+          }
+        });
+      } catch (e) {
+        reject(e);
+      }
+    }).catch(() => {}); // Prevent queue from breaking on error
+  });
+}
 
 export async function initDB() {
   // SQLite disables foreign keys by default, must be enabled for ON DELETE CASCADE to work
@@ -115,6 +162,11 @@ export async function initDB() {
   await exec(`CREATE INDEX IF NOT EXISTS idx_nodes_session_fingerprint ON nodes(session_id, fingerprint)`);
   await exec(`CREATE INDEX IF NOT EXISTS idx_nodes_file_key ON nodes(file_key)`);
   await exec(`CREATE INDEX IF NOT EXISTS idx_team_files_last_modified ON team_files(last_modified)`);
+  
+  // Critical for UI responsiveness during active scans
+  await exec(`CREATE INDEX IF NOT EXISTS idx_nodes_parent_id ON nodes(parent_id)`);
+  await exec(`CREATE INDEX IF NOT EXISTS idx_node_metadata_session ON node_metadata(session_id)`);
+  await exec(`CREATE INDEX IF NOT EXISTS idx_nodes_session_id ON nodes(session_id)`);
 
   // Cleanup old redundant indexes if they exist
   const redundantIndexes = ['idx_nodes_parent', 'idx_nodes_session', 'idx_nodes_type'];

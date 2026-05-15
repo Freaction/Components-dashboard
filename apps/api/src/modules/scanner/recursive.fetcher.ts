@@ -36,6 +36,8 @@ export async function processNodesRecursively(
         const fetchDepth = baseDepth === 0 ? 1 : undefined;
         const chunkRes = await getFigmaNodesStream(fileKey, token, ids, fetchDepth);
         
+        const childTasks: { nodeId: string; nodeData: any; pageName: string }[] = [];
+
         // Define how to handle each node as it arrives
         const onNodeFound = async (nodeId: string, nodeData: any) => {
           await writeNodeBatch(session_id, fileKey, fileName, nodeData, parentId, baseDepth, pageName);
@@ -44,9 +46,8 @@ export async function processNodesRecursively(
           if (fetchDepth === 1) {
             const children = nodeData.document?.children || [];
             if (children.length > 0) {
-              const childNodes = children.map((c: any) => ({ id: c.id, name: c.name }));
-              const currentPageName = pageName || chunk.find(c => c.id === nodeId)?.name;
-              await processNodesRecursively(fileKey, fileName, token, session_id, childNodes, baseDepth + 1, nodeId, 50, currentPageName, processedNodeIds);
+              const currentPageName = pageName || chunk.find(c => c.id === nodeId)?.name || 'Untitled Page';
+              childTasks.push({ nodeId, nodeData, pageName: currentPageName });
             }
           }
         };
@@ -57,6 +58,16 @@ export async function processNodesRecursively(
           for (const [nodeId, nodeData] of Object.entries<any>(chunkData.nodes)) {
             await onNodeFound(nodeId, nodeData);
           }
+        }
+
+        // Process children AFTER the current level's stream is finished for this chunk
+        // but before moving to the next chunk concurrency-wise
+        if (childTasks.length > 0) {
+          await Promise.all(childTasks.map(task => {
+            const children = task.nodeData.document?.children || [];
+            const childNodes = children.map((c: any) => ({ id: c.id, name: c.name }));
+            return processNodesRecursively(fileKey, fileName, token, session_id, childNodes, baseDepth + 1, task.nodeId, 50, task.pageName, processedNodeIds);
+          }));
         }
       } catch (error: any) {
         console.error(`${logPrefix} Failed:`, error.message);

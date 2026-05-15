@@ -16,7 +16,7 @@ export const nodeRoutes = new Hono()
     if (search) {
       sql = `
         SELECT ${lightColumns}, 
-        (SELECT 1 FROM nodes c WHERE c.parent_id = n.id AND c.session_id = n.session_id LIMIT 1) as has_children
+        EXISTS(SELECT 1 FROM nodes c WHERE c.parent_id = n.id AND c.session_id = n.session_id) as has_children
         FROM nodes n
         JOIN nodes_search s ON n.rowid = s.rowid
         WHERE nodes_search MATCH ? AND n.session_id = ?
@@ -30,7 +30,7 @@ export const nodeRoutes = new Hono()
         const isRoot = parent_id === 'null';
         sql = `
           SELECT ${lightColumns}, 
-          (SELECT 1 FROM nodes c WHERE c.parent_id = n.id AND c.session_id = n.session_id LIMIT 1) as has_children
+          EXISTS(SELECT 1 FROM nodes c WHERE c.parent_id = n.id AND c.session_id = n.session_id) as has_children
           FROM nodes n 
           WHERE n.session_id = ? AND (n.parent_id = ? OR (n.parent_id IS NULL AND ? = "null"))
           ${isRoot ? "AND n.type = 'CANVAS'" : ""}
@@ -50,7 +50,7 @@ export const nodeRoutes = new Hono()
         const placeholders = expandedTypes.map(() => '?').join(', ');
         sql = `
           SELECT ${lightColumns}, 
-          (SELECT 1 FROM nodes c WHERE c.parent_id = n.id AND c.session_id = n.session_id LIMIT 1) as has_children
+          EXISTS(SELECT 1 FROM nodes c WHERE c.parent_id = n.id AND c.session_id = n.session_id) as has_children
           FROM nodes n 
           WHERE n.session_id = ? AND n.type IN (${placeholders})
         `;

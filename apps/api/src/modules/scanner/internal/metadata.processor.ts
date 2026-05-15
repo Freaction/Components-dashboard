@@ -1,4 +1,4 @@
-import { exec } from '../../../core/db';
+import { exec, transaction } from '../../../core/db';
 
 export async function processMetadata(
   components: any,
@@ -41,20 +41,32 @@ export async function processMetadata(
   }
 
   if (batch.length > 0) {
-    const nodePlaceholders = batch.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(',');
-    const nodeParams = batch.flatMap(b => b.nodeData);
-    await exec(
-      `INSERT OR IGNORE INTO nodes (id, session_id, file_key, file_name, name, type, parent_id, component_id, text_content, fingerprint, depth, is_component, order_index, page_name) 
-       VALUES ${nodePlaceholders}`,
-      ...nodeParams
-    );
+    const SQLITE_MAX_PARAMS = 999;
+    const nodeChunkSize = Math.floor(SQLITE_MAX_PARAMS / 14);
+    const metadataChunkSize = Math.floor(SQLITE_MAX_PARAMS / 7);
 
-    const metadataPlaceholders = batch.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(',');
-    const metadataParams = batch.flatMap(b => b.metadataData);
-    await exec(
-      `INSERT OR IGNORE INTO node_metadata (node_id, session_id, styles_json, properties_json, fills_json, strokes_json, bound_variables_json) 
-       VALUES ${metadataPlaceholders}`,
-      ...metadataParams
-    );
+    await transaction(async () => {
+      for (let i = 0; i < batch.length; i += nodeChunkSize) {
+        const chunk = batch.slice(i, i + nodeChunkSize);
+        const nodePlaceholders = chunk.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(',');
+        const nodeParams = chunk.flatMap(b => b.nodeData);
+        await exec(
+          `INSERT OR IGNORE INTO nodes (id, session_id, file_key, file_name, name, type, parent_id, component_id, text_content, fingerprint, depth, is_component, order_index, page_name) 
+           VALUES ${nodePlaceholders}`,
+          ...nodeParams
+        );
+      }
+
+      for (let i = 0; i < batch.length; i += metadataChunkSize) {
+        const chunk = batch.slice(i, i + metadataChunkSize);
+        const metadataPlaceholders = chunk.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(',');
+        const metadataParams = chunk.flatMap(b => b.metadataData);
+        await exec(
+          `INSERT OR IGNORE INTO node_metadata (node_id, session_id, styles_json, properties_json, fills_json, strokes_json, bound_variables_json) 
+           VALUES ${metadataPlaceholders}`,
+          ...metadataParams
+        );
+      }
+    });
   }
 }
