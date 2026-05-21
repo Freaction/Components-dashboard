@@ -137,6 +137,10 @@ export const SearchView: React.FC = () => {
     setPropertyFilters(prev => prev.filter(p => !(p.key === key && p.value === value)));
   };
 
+  const toggleNodeSelection = (node: any) => {
+    setSelectedNode((prev: any) => (prev?.id === node?.id ? null : node));
+  };
+
   const hasSearchOrFilters = (query && query.length >= 2) || typeFilter.length > 0 || teamFilter.length > 0 || propertyFilters.length > 0;
 
   return (
@@ -189,7 +193,7 @@ export const SearchView: React.FC = () => {
               results={results}
               isLoading={isLoading}
               selectedNode={selectedNode}
-              setSelectedNode={setSelectedNode}
+              setSelectedNode={toggleNodeSelection}
               hasSearched={hasSearchOrFilters}
             />
           </div>

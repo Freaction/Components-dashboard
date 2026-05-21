@@ -67,7 +67,6 @@ function buildNodeFilter(params: SearchParams) {
 
   // Advanced Property Filtering logic
   if (params.props && params.props.length > 0) {
-    console.log('[SearchService] Adding property filters:', JSON.stringify(params.props));
     params.props.forEach((p, idx) => {
       const jsonPath = `$."${p.key}".value`;
       
@@ -88,7 +87,6 @@ function buildNodeFilter(params: SearchParams) {
           queryParams.push(jsonPath, p.value, jsonPath, p.value);
         }
       }
-      console.log(`[SearchService] Filter ${idx}: path="${jsonPath}", value="${p.value}"`);
     });
   }
 
@@ -100,7 +98,6 @@ export async function searchGlobalNodes(params: SearchParams) {
   try {
     const { latestSessionsCTE, whereClause, queryParams } = buildNodeFilter(params);
 
-    // Optimization: If we have a text query, join nodes_search first
     const sql = `
       WITH ${latestSessionsCTE}
       SELECT 
@@ -118,11 +115,8 @@ export async function searchGlobalNodes(params: SearchParams) {
       LIMIT 50000
     `;
 
-    console.log('[SearchService] GlobalSearch SQL:', sql.replace(/\s+/g, ' ').trim());
-    console.log('[SearchService] Parameters:', JSON.stringify(queryParams));
-
     const results = await query(sql, ...queryParams);
-    console.log(`[SearchService] Search completed in ${Date.now() - startTime}ms. Rows: ${results.length}`);
+    console.log(`[SearchService] Global Nodes: ${results.length} rows in ${Date.now() - startTime}ms`);
     return results;
   } catch (error) {
     console.error('[SearchService] Fatal error:', error);
@@ -178,10 +172,8 @@ export async function searchGlobalStats(params: SearchParams) {
       ORDER BY count DESC
     `;
 
-    console.log('[SearchService] Stats SQL:', sql.replace(/\s+/g, ' ').trim());
     const rows = await query(sql, ...queryParams);
     return formatStatsRows(rows, startTime);
-
   } catch (error) {
     console.error('[SearchService] Stats error:', error);
     throw error;
