@@ -14,6 +14,7 @@ interface SearchFiltersProps {
   availableTeams: any[];
   isLoading: boolean;
   onSearch: () => void;
+  setPropertyFilters: (p: any[]) => void;
 }
 
 export const SearchFilters: React.FC<SearchFiltersProps> = ({
@@ -27,7 +28,8 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
   setSortBy,
   availableTeams = [],
   isLoading,
-  onSearch
+  onSearch,
+  setPropertyFilters
 }) => {
   const teamOptions = availableTeams.map(t => ({ label: t.name, value: String(t.id) }));
   const sortOptions = [
@@ -41,6 +43,7 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
     setTypeFilter([]);
     setTeamFilter([]);
     setSortBy('relevance');
+    setPropertyFilters([]);
   };
 
   return (

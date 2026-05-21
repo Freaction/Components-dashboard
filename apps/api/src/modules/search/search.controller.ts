@@ -5,13 +5,22 @@ export const searchRoutes = new Hono()
   .get('/global', async (c) => {
     try {
       const q = c.req.query('q');
-      const type = c.req.query('type');
-      const team_id = c.req.query('team_id');
+      const type = c.req.queries('type');
+      const team_id = c.req.queries('team_id');
+      const propsStr = c.req.query('props');
+      
+      let props = [];
+      if (propsStr) {
+        try {
+          props = JSON.parse(propsStr);
+        } catch (e) {}
+      }
 
       const results = await searchGlobalNodes({ 
         q, 
         type, 
-        team_id
+        team_id,
+        props
       });
       
       return c.json({ 
@@ -27,13 +36,22 @@ export const searchRoutes = new Hono()
   .get('/global/stats', async (c) => {
     try {
       const q = c.req.query('q');
-      const type = c.req.query('type');
-      const team_id = c.req.query('team_id');
+      const type = c.req.queries('type');
+      const team_id = c.req.queries('team_id');
+      const propsStr = c.req.query('props');
+      
+      let props = [];
+      if (propsStr) {
+        try {
+          props = JSON.parse(propsStr);
+        } catch (e) {}
+      }
 
       const stats = await searchGlobalStats({ 
         q, 
         type, 
-        team_id
+        team_id,
+        props
       });
       
       return c.json({ 

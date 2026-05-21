@@ -1,11 +1,17 @@
 import { query } from '../../core/db';
 
+export interface PropertyFilter {
+  key: string;
+  value: string;
+}
+
 export interface SearchParams {
   q?: string;
   type?: string | string[];
   team_id?: string | string[];
   sort?: 'relevance' | 'newest' | 'alphabetical';
   is_reference?: boolean;
+  props?: PropertyFilter[];
 }
 
 function buildNodeFilter(params: SearchParams) {
@@ -59,6 +65,33 @@ function buildNodeFilter(params: SearchParams) {
     queryParams.push(params.is_reference ? 1 : 0);
   }
 
+  // Advanced Property Filtering logic
+  if (params.props && params.props.length > 0) {
+    console.log('[SearchService] Adding property filters:', JSON.stringify(params.props));
+    params.props.forEach((p, idx) => {
+      const jsonPath = `$."${p.key}".value`;
+      
+      // Handle boolean strings from frontend
+      if (p.value === 'true' || p.value === '1') {
+        whereClause += ` AND (json_extract(nm.properties_json, ?) = 1 OR json_extract(nm.properties_json, ?) = 'true')`;
+        queryParams.push(jsonPath, jsonPath);
+      } else if (p.value === 'false' || p.value === '0') {
+        whereClause += ` AND (json_extract(nm.properties_json, ?) = 0 OR json_extract(nm.properties_json, ?) = 'false')`;
+        queryParams.push(jsonPath, jsonPath);
+      } else {
+        // Try both string and number for numeric values
+        whereClause += ` AND (json_extract(nm.properties_json, ?) = ? OR json_extract(nm.properties_json, ?) = ?)`;
+        const numVal = Number(p.value);
+        if (!isNaN(numVal)) {
+          queryParams.push(jsonPath, numVal, jsonPath, p.value);
+        } else {
+          queryParams.push(jsonPath, p.value, jsonPath, p.value);
+        }
+      }
+      console.log(`[SearchService] Filter ${idx}: path="${jsonPath}", value="${p.value}"`);
+    });
+  }
+
   return { latestSessionsCTE, whereClause, queryParams };
 }
 
@@ -67,6 +100,7 @@ export async function searchGlobalNodes(params: SearchParams) {
   try {
     const { latestSessionsCTE, whereClause, queryParams } = buildNodeFilter(params);
 
+    // Optimization: If we have a text query, join nodes_search first
     const sql = `
       WITH ${latestSessionsCTE}
       SELECT 
@@ -74,17 +108,21 @@ export async function searchGlobalNodes(params: SearchParams) {
         ls.team_id, ls.team_name,
         tf.last_modified as file_last_modified
         ${params.q ? ', s.rank' : ''}
-      FROM nodes n
+      FROM ${params.q ? 'nodes_search s JOIN nodes n ON s.rowid = n.rowid' : 'nodes n'}
       JOIN latest_sessions ls ON n.session_id = ls.id
+      JOIN node_metadata nm ON n.id = nm.node_id AND n.session_id = nm.session_id
       LEFT JOIN team_files tf ON n.file_key = tf.file_key AND tf.team_id = ls.team_id
-      ${params.q ? 'JOIN nodes_search s ON n.rowid = s.rowid' : ''}
       ${whereClause}
       ${params.q && (params.sort === 'relevance' || !params.sort) ? 'ORDER BY s.rank' : 
         params.sort === 'alphabetical' ? 'ORDER BY n.name ASC' : 'ORDER BY tf.last_modified DESC, n.name ASC'}
       LIMIT 50000
     `;
 
+    console.log('[SearchService] GlobalSearch SQL:', sql.replace(/\s+/g, ' ').trim());
+    console.log('[SearchService] Parameters:', JSON.stringify(queryParams));
+
     const results = await query(sql, ...queryParams);
+    console.log(`[SearchService] Search completed in ${Date.now() - startTime}ms. Rows: ${results.length}`);
     return results;
   } catch (error) {
     console.error('[SearchService] Fatal error:', error);
@@ -97,7 +135,9 @@ export async function searchGlobalStats(params: SearchParams) {
   try {
     const { latestSessionsCTE, whereClause, queryParams } = buildNodeFilter(params);
 
-    if (!params.q) {
+    const hasFilters = params.q || (params.props && params.props.length > 0) || (params.type && params.type.length > 0) || (params.team_id && params.team_id.length > 0);
+
+    if (!hasFilters) {
       const sql = `
         WITH ${latestSessionsCTE}
         SELECT 
@@ -117,9 +157,9 @@ export async function searchGlobalStats(params: SearchParams) {
       WITH ${latestSessionsCTE},
       filtered_ids AS (
         SELECT n.id, n.session_id
-        FROM nodes n
+        FROM ${params.q ? 'nodes_search s JOIN nodes n ON s.rowid = n.rowid' : 'nodes n'}
         JOIN latest_sessions ls ON n.session_id = ls.id
-        ${params.q ? 'JOIN nodes_search s ON n.rowid = s.rowid' : ''}
+        JOIN node_metadata nm ON n.id = nm.node_id AND n.session_id = nm.session_id
         LEFT JOIN team_files tf ON n.file_key = tf.file_key AND tf.team_id = ls.team_id
         ${whereClause}
         ORDER BY 
@@ -138,6 +178,7 @@ export async function searchGlobalStats(params: SearchParams) {
       ORDER BY count DESC
     `;
 
+    console.log('[SearchService] Stats SQL:', sql.replace(/\s+/g, ' ').trim());
     const rows = await query(sql, ...queryParams);
     return formatStatsRows(rows, startTime);
 

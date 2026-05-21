@@ -7,9 +7,18 @@ interface NodeDetailsProps {
   defaultFileKey?: string;
   defaultFileName?: string;
   aggregateStats?: any;
+  onPropertyClick?: (key: string, value: string) => void;
+  activePropertyFilters?: Array<{ key: string, value: string }>;
 }
 
-export const NodeDetails: React.FC<NodeDetailsProps> = ({ node, defaultFileKey, defaultFileName, aggregateStats }) => {
+export const NodeDetails: React.FC<NodeDetailsProps> = ({ 
+  node, 
+  defaultFileKey, 
+  defaultFileName, 
+  aggregateStats,
+  onPropertyClick,
+  activePropertyFilters = []
+}) => {
   const [metadata, setMetadata] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -32,6 +41,10 @@ export const NodeDetails: React.FC<NodeDetailsProps> = ({ node, defaultFileKey, 
   }, [node?.id, node?.session_id]);
 
   if (!node) return null;
+
+  const isFilterActive = (key: string, value: string) => {
+    return activePropertyFilters.some(f => f.key === key && f.value === value);
+  };
 
   const getFigmaLink = (n: any, useApp = false) => {
     const fileKey = n.file_key || defaultFileKey || '';
@@ -92,7 +105,16 @@ export const NodeDetails: React.FC<NodeDetailsProps> = ({ node, defaultFileKey, 
                   <Flex gap={2} align="center">
                     <Text variant="sm" weight="medium">{formatPropertyValue(value)}</Text>
                     {globalCount !== null && (
-                      <Badge variant="slate" style={{ fontSize: '10px', padding: '0 4px', height: '16px' }}>
+                      <Badge 
+                        variant={isFilterActive(key, value) ? "blue" : "slate"} 
+                        style={{ 
+                          fontSize: '10px', 
+                          padding: '0 4px', 
+                          height: '16px',
+                          cursor: onPropertyClick ? 'pointer' : 'default'
+                        }}
+                        onClick={() => onPropertyClick?.(key, value)}
+                      >
                         {formatCount(globalCount)}
                       </Badge>
                     )}
