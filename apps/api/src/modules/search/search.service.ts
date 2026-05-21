@@ -129,24 +129,8 @@ export async function searchGlobalStats(params: SearchParams) {
   try {
     const { latestSessionsCTE, whereClause, queryParams } = buildNodeFilter(params);
 
-    const hasFilters = params.q || (params.props && params.props.length > 0) || (params.type && params.type.length > 0) || (params.team_id && params.team_id.length > 0);
-
-    if (!hasFilters) {
-      const sql = `
-        WITH ${latestSessionsCTE}
-        SELECT 
-          sps.property,
-          sps.value,
-          SUM(sps.count) as count
-        FROM session_property_stats sps
-        JOIN latest_sessions ls ON sps.session_id = ls.id
-        GROUP BY property, value
-        ORDER BY count DESC
-      `;
-      const rows = await query(sql, ...queryParams);
-      return formatStatsRows(rows, startTime);
-    }
-
+    // We always calculate live stats from node_metadata to ensure 100% accuracy.
+    // The precomputed session_property_stats table is often stale or incomplete.
     const sql = `
       WITH ${latestSessionsCTE},
       filtered_ids AS (
@@ -156,10 +140,6 @@ export async function searchGlobalStats(params: SearchParams) {
         JOIN node_metadata nm ON n.id = nm.node_id AND n.session_id = nm.session_id
         LEFT JOIN team_files tf ON n.file_key = tf.file_key AND tf.team_id = ls.team_id
         ${whereClause}
-        ORDER BY 
-          CASE WHEN n.type IN ('COMPONENT', 'INSTANCE', 'VARIANT', 'COMPONENT_SET') THEN 0 ELSE 1 END,
-          n.depth ASC
-        LIMIT 50000
       )
       SELECT 
         je.key as property,
@@ -173,7 +153,10 @@ export async function searchGlobalStats(params: SearchParams) {
     `;
 
     const rows = await query(sql, ...queryParams);
-    return formatStatsRows(rows, startTime);
+    const stats = formatStatsRows(rows, startTime);
+    console.log(`[SearchService] Global Stats: Aggregated from ${rows.length} property-value pairs in ${Date.now() - startTime}ms`);
+    return stats;
+
   } catch (error) {
     console.error('[SearchService] Stats error:', error);
     throw error;
