@@ -14,6 +14,8 @@ export const TreeNode: React.FC<{
   const [children, setChildren] = useState<Node[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  const nodeUniqueId = `${node.file_key}:${node.id}`;
+
   const handleClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     onSelect(node);
@@ -47,7 +49,7 @@ export const TreeNode: React.FC<{
   return (
     <div className="tree-node-wrapper">
       <div 
-        className={`tree-node ${selectedId === node.id ? 'is-selected' : ''}`}
+        className={`tree-node ${selectedId === nodeUniqueId ? 'is-selected' : ''}`}
         style={{ 
           paddingLeft,
           paddingRight: 'var(--space-2)',
@@ -77,12 +79,28 @@ export const TreeNode: React.FC<{
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
-          color: selectedId === node.id ? 'var(--color-text-accent)' : 'var(--color-text-primary)',
-          fontWeight: selectedId === node.id ? 'var(--font-medium)' : 'var(--font-normal)',
+          color: selectedId === nodeUniqueId ? 'var(--color-text-accent)' : (node.is_ghost ? 'var(--color-text-tertiary)' : 'var(--color-text-primary)'),
+          fontWeight: selectedId === nodeUniqueId ? 'var(--font-medium)' : 'var(--font-normal)',
           flexGrow: 1, // Fill content
-          fontSize: 'var(--text-sm)'
+          fontSize: 'var(--text-sm)',
+          fontStyle: node.is_ghost ? 'italic' : 'normal',
+          textDecoration: node.is_ghost ? 'line-through' : 'none'
         }}>
+          {node.is_ghost && <span title="Ghost component (not on canvas)" style={{ marginRight: '4px' }}>👻</span>}
           {node.name || 'Unnamed'}
+          {node.instances_count && node.instances_count > 1 && (
+            <span style={{ 
+              marginLeft: 'var(--space-2)', 
+              color: 'var(--color-accent)', 
+              fontWeight: 'var(--font-bold)',
+              fontSize: '10px',
+              background: 'var(--color-bg-accent-soft)',
+              padding: '0 4px',
+              borderRadius: '4px'
+            }}>
+              x{node.instances_count}
+            </span>
+          )}
         </span>
 
         <Badge 
@@ -95,7 +113,7 @@ export const TreeNode: React.FC<{
 
       {isExpanded && children.map(child => (
         <TreeNode 
-          key={child.id} 
+          key={`${child.file_key}:${child.id}`} 
           node={{ ...child, depth: nodeDepth + 1 }} 
           sessionId={sessionId} 
           onSelect={onSelect} 

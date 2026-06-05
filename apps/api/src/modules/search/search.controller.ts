@@ -8,6 +8,8 @@ export const searchRoutes = new Hono()
       const type = c.req.queries('type');
       const team_id = c.req.queries('team_id');
       const propsStr = c.req.query('props');
+      const grouped = c.req.query('grouped') === 'true';
+      const global_group = c.req.query('global_group') === 'true';
       
       let props = [];
       if (propsStr) {
@@ -20,7 +22,9 @@ export const searchRoutes = new Hono()
         q, 
         type, 
         team_id,
-        props
+        props,
+        grouped,
+        global_group
       });
       
       return c.json({ 

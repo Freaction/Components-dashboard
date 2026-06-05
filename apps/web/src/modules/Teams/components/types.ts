@@ -9,6 +9,8 @@ export interface Node {
   file_name?: string;
   component_id?: string;
   has_children?: boolean;
+  instances_count?: number;
+  is_ghost?: boolean;
 }
 
 export interface Team { id: string; name: string; }

@@ -141,6 +141,24 @@ export const NodeDetails: React.FC<NodeDetailsProps> = ({
         <Text weight="medium">{stripFigmaId(node.name)}</Text>
       </Flex>
 
+      {node.is_ghost && (
+        <div style={{ 
+          background: 'rgba(255, 77, 77, 0.1)', 
+          border: '1px solid rgba(255, 77, 77, 0.3)', 
+          borderRadius: 'var(--radius-md)', 
+          padding: 'var(--space-3)', 
+          marginBottom: 'var(--space-6)' 
+        }}>
+          <Text variant="sm" weight="bold" color="accent" style={{ color: '#ff4d4d', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            👻 Ghost Component
+          </Text>
+          <Text variant="xs" style={{ marginTop: '4px', display: 'block' }}>
+            This node exists in the file metadata but is <b>not placed on any page</b>. 
+            The link below might open the file but fail to select the node.
+          </Text>
+        </div>
+      )}
+
       <Flex direction="column" gap={1} style={{ marginBottom: 'var(--space-5)' }}>
         <Text variant="xs" weight="bold" color="tertiary" style={{ textTransform: 'uppercase' }}>Type</Text>
         <div>

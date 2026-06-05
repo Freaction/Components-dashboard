@@ -14,6 +14,8 @@ export const SearchView: React.FC = () => {
   const [teamFilter, setTeamFilter] = useState<string[]>([]);
   const [propertyFilters, setPropertyFilters] = useState<Array<{ key: string, value: string }>>([]);
   const [sortBy, setSortBy] = useState<string>('relevance');
+  const [isGrouped, setIsGrouped] = useState(false);
+  const [isGlobal, setIsGlobal] = useState(false);
   const [availableTeams, setAvailableTeams] = useState<any[]>([]);
   const [results, setResults] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
@@ -61,10 +63,12 @@ export const SearchView: React.FC = () => {
   const performSearch = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
     const startTime = performance.now();
-    console.log(`[SearchView] Starting search for "${query}"...`);
+    console.log(`[SearchView] Starting search for "${query}" (grouped: ${isGrouped}, global: ${isGlobal})...`);
     try {
       const url = new URL('http://127.0.0.1:3001/search/global');
       if (query) url.searchParams.append('q', query);
+      if (isGrouped) url.searchParams.append('grouped', 'true');
+      if (isGlobal) url.searchParams.append('global_group', 'true');
       if (typeFilter.length > 0) {
         typeFilter.forEach(t => url.searchParams.append('type', t));
       }
@@ -94,7 +98,7 @@ export const SearchView: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [query, typeFilter, teamFilter, propertyFilters, sortBy, fetchStats]);
+  }, [query, typeFilter, teamFilter, propertyFilters, sortBy, isGrouped, isGlobal, fetchStats]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -120,7 +124,7 @@ export const SearchView: React.FC = () => {
     return () => {
       controller.abort();
     };
-  }, [query, typeFilter, teamFilter, propertyFilters, sortBy, performSearch]);
+  }, [query, typeFilter, teamFilter, propertyFilters, sortBy, isGrouped, isGlobal, performSearch]);
 
   const togglePropertyFilter = (key: string, value: string) => {
     setPropertyFilters(prev => {
@@ -138,7 +142,7 @@ export const SearchView: React.FC = () => {
   };
 
   const toggleNodeSelection = (node: any) => {
-    setSelectedNode((prev: any) => (prev?.id === node?.id ? null : node));
+    setSelectedNode((prev: any) => (prev?.id === node?.id && prev?.file_key === node?.file_key ? null : node));
   };
 
   const hasSearchOrFilters = (query && query.length >= 2) || typeFilter.length > 0 || teamFilter.length > 0 || propertyFilters.length > 0;
@@ -158,6 +162,10 @@ export const SearchView: React.FC = () => {
         sortBy={sortBy}
         setSortBy={setSortBy}
         setPropertyFilters={setPropertyFilters}
+        isGrouped={isGrouped}
+        setIsGrouped={setIsGrouped}
+        isGlobal={isGlobal}
+        setIsGlobal={setIsGlobal}
       />
 
       <div className={styles.explorerPanel}>

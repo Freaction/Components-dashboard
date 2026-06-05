@@ -12,6 +12,8 @@ export interface SearchParams {
   sort?: 'relevance' | 'newest' | 'alphabetical';
   is_reference?: boolean;
   props?: PropertyFilter[];
+  grouped?: boolean;
+  global_group?: boolean;
 }
 
 function buildNodeFilter(params: SearchParams) {
@@ -98,25 +100,53 @@ export async function searchGlobalNodes(params: SearchParams) {
   try {
     const { latestSessionsCTE, whereClause, queryParams } = buildNodeFilter(params);
 
-    const sql = `
-      WITH ${latestSessionsCTE}
-      SELECT 
-        n.id, n.session_id, n.depth, n.parent_id, n.name, n.type, n.file_key, n.file_name, n.page_name,
-        ls.team_id, ls.team_name,
-        tf.last_modified as file_last_modified
-        ${params.q ? ', s.rank' : ''}
-      FROM ${params.q ? 'nodes_search s JOIN nodes n ON s.rowid = n.rowid' : 'nodes n'}
-      JOIN latest_sessions ls ON n.session_id = ls.id
-      JOIN node_metadata nm ON n.id = nm.node_id AND n.session_id = nm.session_id
-      LEFT JOIN team_files tf ON n.file_key = tf.file_key AND tf.team_id = ls.team_id
-      ${whereClause}
-      ${params.q && (params.sort === 'relevance' || !params.sort) ? 'ORDER BY s.rank' : 
-        params.sort === 'alphabetical' ? 'ORDER BY n.name ASC' : 'ORDER BY tf.last_modified DESC, n.name ASC'}
-      LIMIT 50000
-    `;
+    let sql: string;
+    if (params.grouped) {
+      const groupByFields = params.global_group 
+        ? 'n.name, n.type, n.component_id' 
+        : 'n.file_key, n.page_name, n.name, n.type, n.component_id';
+
+      sql = `
+        WITH ${latestSessionsCTE}
+        SELECT 
+          n.name, n.type, n.component_id,
+          ${params.global_group ? "NULL as file_key, 'Global Results' as file_name, 'Workspace' as page_name, NULL as team_id, 'Global' as team_name" : "n.file_key, n.file_name, n.page_name, ls.team_id, ls.team_name"},
+          MAX(tf.last_modified) as file_last_modified,
+          COUNT(*) as instances_count,
+          MAX(n.id) as id,
+          MAX(n.session_id) as session_id,
+          MAX(n.depth) as depth,
+          MAX(n.parent_id) as parent_id
+        FROM ${params.q ? 'nodes_search s JOIN nodes n ON s.rowid = n.rowid' : 'nodes n'}
+        JOIN latest_sessions ls ON n.session_id = ls.id
+        JOIN node_metadata nm ON n.id = nm.node_id AND n.session_id = nm.session_id
+        LEFT JOIN team_files tf ON n.file_key = tf.file_key AND tf.team_id = ls.team_id
+        ${whereClause}
+        GROUP BY ${groupByFields}
+        ORDER BY instances_count DESC
+        LIMIT 50000
+      `;
+    } else {
+      sql = `
+        WITH ${latestSessionsCTE}
+        SELECT 
+          n.id, n.session_id, n.depth, n.parent_id, n.name, n.type, n.file_key, n.file_name, n.page_name,
+          ls.team_id, ls.team_name,
+          tf.last_modified as file_last_modified
+          ${params.q ? ', s.rank' : ''}
+        FROM ${params.q ? 'nodes_search s JOIN nodes n ON s.rowid = n.rowid' : 'nodes n'}
+        JOIN latest_sessions ls ON n.session_id = ls.id
+        JOIN node_metadata nm ON n.id = nm.node_id AND n.session_id = nm.session_id
+        LEFT JOIN team_files tf ON n.file_key = tf.file_key AND tf.team_id = ls.team_id
+        ${whereClause}
+        ${params.q && (params.sort === 'relevance' || !params.sort) ? 'ORDER BY s.rank' : 
+          params.sort === 'alphabetical' ? 'ORDER BY n.name ASC' : 'ORDER BY tf.last_modified DESC, n.name ASC'}
+        LIMIT 50000
+      `;
+    }
 
     const results = await query(sql, ...queryParams);
-    console.log(`[SearchService] Global Nodes: ${results.length} rows in ${Date.now() - startTime}ms`);
+    console.log(`[SearchService] Global Nodes: ${results.length} rows (grouped: ${!!params.grouped}, global: ${!!params.global_group}) in ${Date.now() - startTime}ms`);
     return results;
   } catch (error) {
     console.error('[SearchService] Fatal error:', error);

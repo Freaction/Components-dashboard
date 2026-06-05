@@ -92,7 +92,7 @@ export async function initDB() {
   )`);
 
   // 4. Nodes (The core data)
-  // Composite PK (id, session_id) allows history tracking
+  // Composite PK (id, session_id, file_key) ensures absolute uniqueness across files
   await exec(`CREATE TABLE IF NOT EXISTS nodes (
     id TEXT, 
     session_id TEXT NOT NULL,
@@ -110,7 +110,8 @@ export async function initDB() {
     is_detached_candidate BOOLEAN DEFAULT 0,
     confidence_score REAL DEFAULT 0,
     page_name TEXT,
-    PRIMARY KEY (id, session_id),
+    is_ghost BOOLEAN DEFAULT 0,
+    PRIMARY KEY (id, session_id, file_key),
     FOREIGN KEY(session_id) REFERENCES scan_sessions(id) ON DELETE CASCADE
   )`);
 
@@ -118,12 +119,13 @@ export async function initDB() {
   await exec(`CREATE TABLE IF NOT EXISTS node_metadata (
     node_id TEXT,
     session_id TEXT,
+    file_key TEXT NOT NULL,
     styles_json TEXT,
     properties_json TEXT,
     fills_json TEXT,
     strokes_json TEXT,
     bound_variables_json TEXT,
-    PRIMARY KEY (node_id, session_id),
+    PRIMARY KEY (node_id, session_id, file_key),
     FOREIGN KEY(session_id) REFERENCES scan_sessions(id) ON DELETE CASCADE
   )`);
 
@@ -165,6 +167,10 @@ export async function initDB() {
     await exec(`ALTER TABLE nodes ADD COLUMN page_name TEXT`);
   } catch (e: any) {}
 
+  try {
+    await exec(`ALTER TABLE nodes ADD COLUMN is_ghost BOOLEAN DEFAULT 0`);
+  } catch (e: any) {}
+
   // 4.5. Indexes for performance
   await exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_team_files_unique ON team_files(team_id, file_key)`);
   await exec(`CREATE INDEX IF NOT EXISTS idx_nodes_session_parent ON nodes(session_id, parent_id)`);
@@ -177,6 +183,7 @@ export async function initDB() {
   await exec(`CREATE INDEX IF NOT EXISTS idx_nodes_parent_id ON nodes(parent_id)`);
   await exec(`CREATE INDEX IF NOT EXISTS idx_node_metadata_session ON node_metadata(session_id)`);
   await exec(`CREATE INDEX IF NOT EXISTS idx_nodes_session_id ON nodes(session_id)`);
+  await exec(`CREATE INDEX IF NOT EXISTS idx_nodes_is_ghost ON nodes(is_ghost)`);
 
   // Cleanup old redundant indexes if they exist
   const redundantIndexes = ['idx_nodes_parent', 'idx_nodes_session', 'idx_nodes_type'];

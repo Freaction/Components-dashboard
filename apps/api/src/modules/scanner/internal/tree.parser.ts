@@ -21,19 +21,19 @@ export async function parseFigmaTree(
     if (batch.length === 0) return;
     
     // SQLite parameter limit is usually 999. 
-    // Nodes have 14 params -> ~71 nodes per chunk
-    // Metadata has 7 params -> ~142 nodes per chunk
-    const nodeChunkSize = Math.floor(SQLITE_MAX_PARAMS / 14);
-    const metadataChunkSize = Math.floor(SQLITE_MAX_PARAMS / 7);
+    // Nodes have 15 params -> ~66 nodes per chunk
+    // Metadata has 8 params -> ~124 nodes per chunk
+    const nodeChunkSize = Math.floor(SQLITE_MAX_PARAMS / 15);
+    const metadataChunkSize = Math.floor(SQLITE_MAX_PARAMS / 8);
 
     await transaction(async () => {
       // 1. Insert nodes in chunks
       for (let i = 0; i < batch.length; i += nodeChunkSize) {
         const chunk = batch.slice(i, i + nodeChunkSize);
-        const nodePlaceholders = chunk.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(',');
+        const nodePlaceholders = chunk.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(',');
         const nodeParams = chunk.flatMap(b => b.nodeData);
         await exec(
-          `INSERT OR REPLACE INTO nodes (id, session_id, file_key, file_name, name, type, parent_id, component_id, text_content, fingerprint, depth, is_component, order_index, page_name) 
+          `INSERT OR REPLACE INTO nodes (id, session_id, file_key, file_name, name, type, parent_id, component_id, text_content, fingerprint, depth, is_component, order_index, page_name, is_ghost) 
            VALUES ${nodePlaceholders}`,
           ...nodeParams
         );
@@ -42,10 +42,10 @@ export async function parseFigmaTree(
       // 2. Insert metadata in chunks
       for (let i = 0; i < batch.length; i += metadataChunkSize) {
         const chunk = batch.slice(i, i + metadataChunkSize);
-        const metadataPlaceholders = chunk.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(',');
+        const metadataPlaceholders = chunk.map(() => '(?, ?, ?, ?, ?, ?, ?, ?)').join(',');
         const metadataParams = chunk.flatMap(b => b.metadataData);
         await exec(
-          `INSERT OR REPLACE INTO node_metadata (node_id, session_id, styles_json, properties_json, fills_json, strokes_json, bound_variables_json) 
+          `INSERT OR REPLACE INTO node_metadata (node_id, session_id, file_key, styles_json, properties_json, fills_json, strokes_json, bound_variables_json) 
            VALUES ${metadataPlaceholders}`,
           ...metadataParams
         );

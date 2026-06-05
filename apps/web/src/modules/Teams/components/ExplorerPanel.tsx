@@ -118,7 +118,7 @@ export const ExplorerPanel: React.FC = () => {
           node={typeFilter.length > 0 ? { ...row.data, depth: 0 } : row.data} 
           sessionId={selectedSession!} 
           onSelect={setSelectedNode}
-          selectedId={selectedNode?.id}
+          selectedId={selectedNode ? `${selectedNode.file_key}:${selectedNode.id}` : undefined}
           isFiltered={typeFilter.length > 0}
         />
       </div>

@@ -31,9 +31,9 @@ export const GroupedResultsTree: React.FC<GroupedResultsTreeProps> = ({
     const rows: FlatRow[] = [];
     
     const grouped = results.reduce((acc: any, node: any) => {
-      const teamName = node.team_name || 'Unknown Team';
-      const fileName = node.file_name || 'Unknown File';
-      const pageName = node.page_name || 'Nodes'; 
+      const teamName = node.team_name || 'Global';
+      const fileName = node.file_name || 'Global Results';
+      const pageName = node.page_name || 'Workspace'; 
 
       if (!acc[teamName]) acc[teamName] = {};
       if (!acc[teamName][fileName]) acc[teamName][fileName] = {};
@@ -49,15 +49,16 @@ export const GroupedResultsTree: React.FC<GroupedResultsTreeProps> = ({
       Object.entries(files).forEach(([fileName, pages]: [string, any]) => {
         const firstPageNodes = Object.values(pages)[0] as any[];
         const lastModified = firstPageNodes?.[0]?.file_last_modified;
-        const relativeDate = formatRelativeDate(lastModified);
+        const relativeDate = lastModified ? formatRelativeDate(lastModified) : '';
         
         rows.push({ type: 'file', name: fileName, relativeDate, key: `file-${teamName}-${fileName}` });
         
         Object.entries(pages).forEach(([pageName, nodes]: [string, any]) => {
-          rows.push({ type: 'page', name: pageName, count: nodes.length, key: `page-${teamName}-${fileName}-${pageName}` });
+          const totalInstances = nodes.reduce((sum: number, n: any) => sum + (n.instances_count || 1), 0);
+          rows.push({ type: 'page', name: pageName, count: totalInstances, key: `page-${teamName}-${fileName}-${pageName}` });
           
           nodes.forEach((node: any) => {
-            rows.push({ type: 'node', data: node, key: `node-${node.session_id}-${node.id}` });
+            rows.push({ type: 'node', data: node, key: `node-${node.session_id}-${node.file_key}-${node.id}` });
           });
         });
       });
@@ -72,7 +73,7 @@ export const GroupedResultsTree: React.FC<GroupedResultsTreeProps> = ({
         return (
           <div style={{ padding: 'var(--space-2) var(--space-4)', background: 'var(--color-bg-muted)', borderBottom: '1px solid var(--color-border-muted)' }}>
             <Text variant="xs" weight="bold" color="tertiary" style={{ textTransform: 'uppercase' }}>
-              👥 Team: {row.name}
+              👥 {row.name === 'Global' ? 'Scope' : 'Team'}: {row.name}
             </Text>
           </div>
         );
@@ -80,7 +81,7 @@ export const GroupedResultsTree: React.FC<GroupedResultsTreeProps> = ({
         return (
           <div style={{ padding: 'var(--space-3) var(--space-4) var(--space-1) var(--space-4)', marginTop: 'var(--space-2)' }}>
             <Flex align="center" justify="space-between">
-              <Text variant="sm" weight="medium" color="secondary">📄 File: {row.name}</Text>
+              <Text variant="sm" weight="medium" color="secondary">📄 {row.name === 'Global Results' ? 'Source' : 'File'}: {row.name}</Text>
               {row.relativeDate && (
                 <Text variant="xs" color="tertiary" style={{ fontStyle: 'italic' }}>
                   {row.relativeDate}
@@ -93,7 +94,7 @@ export const GroupedResultsTree: React.FC<GroupedResultsTreeProps> = ({
         return (
           <div style={{ padding: 'var(--space-1) var(--space-4) var(--space-1) calc(var(--space-4) + 12px)' }}>
             <Text variant="xs" weight="bold" color="tertiary" style={{ display: 'block', textTransform: 'uppercase' }}>
-              🔖 Page: {row.name} ({row.count})
+              🔖 {row.name === 'Workspace' ? 'Context' : 'Page'}: {row.name} ({row.count})
             </Text>
           </div>
         );
@@ -104,7 +105,7 @@ export const GroupedResultsTree: React.FC<GroupedResultsTreeProps> = ({
               node={{ ...row.data, depth: 0 }}
               sessionId={row.data.session_id}
               onSelect={setSelectedNode}
-              selectedId={selectedNode?.id}
+              selectedId={selectedNode ? `${selectedNode.file_key}:${selectedNode.id}` : undefined}
               isFiltered={true}
             />
           </div>

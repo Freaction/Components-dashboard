@@ -11,7 +11,7 @@ export const nodeRoutes = new Hono()
     let params: any[] = [];
 
     // Exclude heavy JSON columns from main list queries
-    const lightColumns = 'n.id, n.session_id, n.file_key, n.file_name, n.name, n.type, n.parent_id, n.component_id, n.text_content, n.fingerprint, n.depth, n.is_component, n.order_index, n.is_detached_candidate, n.confidence_score, n.page_name';
+    const lightColumns = 'n.id, n.session_id, n.file_key, n.file_name, n.name, n.type, n.parent_id, n.component_id, n.text_content, n.fingerprint, n.depth, n.is_component, n.order_index, n.is_detached_candidate, n.confidence_score, n.page_name, n.is_ghost';
 
     if (search) {
       sql = `
