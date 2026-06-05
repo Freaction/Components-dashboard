@@ -10,6 +10,7 @@ interface GroupedResultsTreeProps {
   selectedNode: any | null;
   setSelectedNode: (node: any) => void;
   hasSearched?: boolean;
+  isGlobal?: boolean;
 }
 
 type FlatRow = 
@@ -23,17 +24,26 @@ export const GroupedResultsTree: React.FC<GroupedResultsTreeProps> = ({
   isLoading,
   selectedNode,
   setSelectedNode,
-  hasSearched = false
+  hasSearched = false,
+  isGlobal = false
 }) => {
   const virtuosoRef = useRef<VirtuosoHandle>(null);
 
   const flatRows = useMemo(() => {
     const rows: FlatRow[] = [];
     
+    if (isGlobal) {
+      // In global mode, just list all nodes directly
+      results.forEach((node: any) => {
+        rows.push({ type: 'node', data: node, key: `node-${node.session_id}-${node.file_key}-${node.id}` });
+      });
+      return rows;
+    }
+
     const grouped = results.reduce((acc: any, node: any) => {
-      const teamName = node.team_name || 'Global';
-      const fileName = node.file_name || 'Global Results';
-      const pageName = node.page_name || 'Workspace'; 
+      const teamName = node.team_name || 'Unknown Team';
+      const fileName = node.file_name || 'Unknown File';
+      const pageName = node.page_name || 'Nodes'; 
 
       if (!acc[teamName]) acc[teamName] = {};
       if (!acc[teamName][fileName]) acc[teamName][fileName] = {};
@@ -65,7 +75,7 @@ export const GroupedResultsTree: React.FC<GroupedResultsTreeProps> = ({
     });
 
     return rows;
-  }, [results]);
+  }, [results, isGlobal]);
 
   const renderRow = (index: number, row: FlatRow) => {
     switch (row.type) {
@@ -73,7 +83,7 @@ export const GroupedResultsTree: React.FC<GroupedResultsTreeProps> = ({
         return (
           <div style={{ padding: 'var(--space-2) var(--space-4)', background: 'var(--color-bg-muted)', borderBottom: '1px solid var(--color-border-muted)' }}>
             <Text variant="xs" weight="bold" color="tertiary" style={{ textTransform: 'uppercase' }}>
-              👥 {row.name === 'Global' ? 'Scope' : 'Team'}: {row.name}
+              👥 Team: {row.name}
             </Text>
           </div>
         );
@@ -81,7 +91,7 @@ export const GroupedResultsTree: React.FC<GroupedResultsTreeProps> = ({
         return (
           <div style={{ padding: 'var(--space-3) var(--space-4) var(--space-1) var(--space-4)', marginTop: 'var(--space-2)' }}>
             <Flex align="center" justify="space-between">
-              <Text variant="sm" weight="medium" color="secondary">📄 {row.name === 'Global Results' ? 'Source' : 'File'}: {row.name}</Text>
+              <Text variant="sm" weight="medium" color="secondary">📄 File: {row.name}</Text>
               {row.relativeDate && (
                 <Text variant="xs" color="tertiary" style={{ fontStyle: 'italic' }}>
                   {row.relativeDate}
@@ -94,13 +104,13 @@ export const GroupedResultsTree: React.FC<GroupedResultsTreeProps> = ({
         return (
           <div style={{ padding: 'var(--space-1) var(--space-4) var(--space-1) calc(var(--space-4) + 12px)' }}>
             <Text variant="xs" weight="bold" color="tertiary" style={{ display: 'block', textTransform: 'uppercase' }}>
-              🔖 {row.name === 'Workspace' ? 'Context' : 'Page'}: {row.name} ({row.count})
+              🔖 Page: {row.name} ({row.count})
             </Text>
           </div>
         );
       case 'node':
         return (
-          <div style={{ padding: '0 var(--space-4) 0 calc(var(--space-4) + 24px)' }}>
+          <div style={{ padding: isGlobal ? 'var(--space-1) var(--space-4)' : '0 var(--space-4) 0 calc(var(--space-4) + 24px)' }}>
             <TreeNode 
               node={{ ...row.data, depth: 0 }}
               sessionId={row.data.session_id}

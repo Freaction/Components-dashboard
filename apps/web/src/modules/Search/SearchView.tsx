@@ -203,6 +203,7 @@ export const SearchView: React.FC = () => {
               selectedNode={selectedNode}
               setSelectedNode={toggleNodeSelection}
               hasSearched={hasSearchOrFilters}
+              isGlobal={isGlobal}
             />
           </div>
         </div>

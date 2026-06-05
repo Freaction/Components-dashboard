@@ -110,7 +110,8 @@ export async function searchGlobalNodes(params: SearchParams) {
         WITH ${latestSessionsCTE}
         SELECT 
           n.name, n.type, n.component_id,
-          ${params.global_group ? "NULL as file_key, 'Global Results' as file_name, 'Workspace' as page_name, NULL as team_id, 'Global' as team_name" : "n.file_key, n.file_name, n.page_name, ls.team_id, ls.team_name"},
+          MAX(n.file_key) as file_key,
+          ${params.global_group ? "'All Files' as file_name, 'Global Workspace' as page_name, NULL as team_id, 'Global' as team_name" : "n.file_name, n.page_name, ls.team_id, ls.team_name"},
           MAX(tf.last_modified) as file_last_modified,
           COUNT(*) as instances_count,
           MAX(n.id) as id,
