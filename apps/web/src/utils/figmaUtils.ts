@@ -25,9 +25,12 @@ export const extractFileName = (s: string): string | undefined => {
 
 interface FigmaLinkParams { fileKey: string; fileName?: string; nodeId?: string; mode?: 'design' | 'dev'; }
 
-export const generateWebLink = ({ fileKey, nodeId, mode = 'design' }: FigmaLinkParams): string => {
+export const generateWebLink = ({ fileKey, fileName, nodeId, mode = 'design' }: FigmaLinkParams): string => {
   const key = extractFileKey(fileKey);
   let url = `${FigmaConfig.BASE_WEB_URL}/${mode}/${key}`;
+  if (fileName) {
+    url += `/${figmaSlugify(fileName)}`;
+  }
   if (nodeId) url += `?node-id=${formatNodeIdForUrl(nodeId)}`;
   return url;
 };

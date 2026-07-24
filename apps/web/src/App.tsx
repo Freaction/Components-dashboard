@@ -1,47 +1,58 @@
 import React, { useState } from 'react';
 import { SettingsView } from './views/SettingsView';
-import { TeamsView } from './modules/Teams/index.tsx';
+import { TeamsView, TeamsProvider } from './modules/Teams/index.tsx';
 import { SearchView } from './modules/Search';
+import { DSKitStatsView } from './views/DSKitStatsView';
 
 function App() {
-  const [tab, setTab] = useState<'teams' | 'search' | 'settings'>('teams');
+  const [tab, setTab] = useState<'teams' | 'search' | 'settings' | 'ds-stats'>('teams');
 
   return (
-    <div className="container">
-      <header style={{ marginBottom: 'var(--space-6)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 'var(--font-bold)', color: 'var(--color-text-primary)', margin: 0 }}>
-          Components Dashboard
-        </h1>
-        <nav className="tabs">
-          <button 
-            onClick={() => setTab('teams')} 
-            className={tab === 'teams' ? 'active' : ''}
-          >
-            Commands
-          </button>
+    <TeamsProvider>
+      <div className="container">
+        <header style={{ marginBottom: 'var(--space-6)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 'var(--font-bold)', color: 'var(--color-text-primary)', margin: 0 }}>
+            Components Dashboard
+          </h1>
+          <nav className="tabs">
+            <button 
+              onClick={() => setTab('teams')} 
+              className={tab === 'teams' ? 'active' : ''}
+            >
+              Commands
+            </button>
 
-          <button 
-            onClick={() => setTab('search')} 
-            className={tab === 'search' ? 'active' : ''}
-          >
-            Analytics
-          </button>
+            <button 
+              onClick={() => setTab('search')} 
+              className={tab === 'search' ? 'active' : ''}
+            >
+              Analytics
+            </button>
 
-          <button 
-            onClick={() => setTab('settings')} 
-            className={tab === 'settings' ? 'active' : ''}
-          >
-            Settings
-          </button>
-        </nav>
-      </header>
+            <button 
+              onClick={() => setTab('ds-stats')} 
+              className={tab === 'ds-stats' ? 'active' : ''}
+            >
+              DS Kit Stats
+            </button>
 
-      <main>
-        {tab === 'teams' && <TeamsView />}
-        {tab === 'search' && <SearchView />}
-        {tab === 'settings' && <SettingsView />}
-      </main>
-    </div>
+            <button 
+              onClick={() => setTab('settings')} 
+              className={tab === 'settings' ? 'active' : ''}
+            >
+              Settings
+            </button>
+          </nav>
+        </header>
+
+        <main>
+          {tab === 'teams' && <TeamsView />}
+          {tab === 'search' && <SearchView />}
+          {tab === 'ds-stats' && <DSKitStatsView />}
+          {tab === 'settings' && <SettingsView />}
+        </main>
+      </div>
+    </TeamsProvider>
   );
 }
 

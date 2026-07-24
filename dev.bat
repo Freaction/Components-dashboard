@@ -1,16 +1,7 @@
 @echo off
-title Components Dashboard Dev
-
-:: Clean up old processes to avoid port conflicts
-echo 🔍 Cleaning up...
-call node scripts/cleanup.js
-
-:: Ensure dependencies are installed if someone just cloned the repo
-if not exist node_modules (
-    echo 📦 Installing dependencies...
-    call npm install
-)
-
-:: Start both API and Web apps
-echo 🚀 Starting services...
-call npm run dev
+echo 🧹 Cleaning up old Rust and Node processes...
+taskkill /F /IM api-rust.exe 2>nul
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :3002') do taskkill /F /PID %%a 2>nul
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :3000') do taskkill /F /PID %%a 2>nul
+echo 🚀 Starting RUST API and WEB...
+npx concurrently -n "RUST,WEB" -c "magenta,cyan" "cargo run --manifest-path apps/api-rust/Cargo.toml" "npm run dev --workspace=web"

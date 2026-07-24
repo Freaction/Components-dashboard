@@ -1,0 +1,4 @@
+--- RETENTION SESSION ---
+Session ID: 85d026d1-487c-408b-96f9-43679f39b539
+Total instances: 2609534
+Instances with published_key: 271871

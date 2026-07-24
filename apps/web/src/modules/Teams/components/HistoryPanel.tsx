@@ -1,14 +1,14 @@
 import React from 'react';
 import { useTeams } from '../TeamsContext';
 import { Button, IconButton, Input, Badge, Text, Flex, ScrollArea } from '../../../components/ui';
-import { Plus, Bookmark } from 'lucide-react';
+import { Plus, Bookmark, Play, Pause } from 'lucide-react';
 import { formatDisplayName } from '../../../utils/figmaUtils';
 
 export const HistoryPanel: React.FC = () => {
   const {
     selectedTeam, sessions, selectedSession, setSelectedSession,
     files, newFileKey, setNewFileKey, addFile, deleteFile,
-    toggleReference, startScan, resumeSession, deleteSession
+    toggleReference, startScan, resumeSession, pauseSession, deleteSession
   } = useTeams();
 
   if (!selectedTeam) {
@@ -65,14 +65,26 @@ export const HistoryPanel: React.FC = () => {
                   }>
                     {s.status}
                   </Badge>
-                  {s.status === 'failed' && (
+                  {s.status !== 'completed' && s.status !== 'proceed' && s.status !== 'pending' && s.status !== 'processing' && (
                     <Button 
                       variant="slate" 
                       size="sm" 
                       onClick={(e) => { e.stopPropagation(); resumeSession(s.id); }}
                       style={{ height: '20px', padding: '0 var(--space-2)', fontSize: '10px' }}
                     >
+                      <Play className="w-3 h-3 mr-1" />
                       Resume
+                    </Button>
+                  )}
+                  {(s.status === 'processing' || s.status === 'pending') && (
+                    <Button 
+                      variant="slate" 
+                      size="sm" 
+                      onClick={(e) => { e.stopPropagation(); pauseSession(s.id); }}
+                      style={{ height: '20px', padding: '0 var(--space-2)', fontSize: '10px' }}
+                    >
+                      <Pause className="w-3 h-3 mr-1" />
+                      Pause
                     </Button>
                   )}
                 </Flex>

@@ -24,7 +24,7 @@ export const SearchView: React.FC = () => {
 
   const fetchTeams = async () => {
     try {
-      const res = await fetch('http://127.0.0.1:3001/teams');
+      const res = await fetch('http://127.0.0.1:3002/teams');
       const data = await res.json();
       setAvailableTeams(data.teams || []);
     } catch (e) {
@@ -38,13 +38,13 @@ export const SearchView: React.FC = () => {
 
   const fetchStats = useCallback(async (signal?: AbortSignal) => {
     try {
-      const url = new URL('http://127.0.0.1:3001/search/global/stats');
+      const url = new URL('http://127.0.0.1:3002/search/global/stats');
       if (query) url.searchParams.append('q', query);
       if (typeFilter.length > 0) {
-        typeFilter.forEach(t => url.searchParams.append('type', t));
+        url.searchParams.append('type', typeFilter.join(','));
       }
       if (teamFilter.length > 0) {
-        teamFilter.forEach(id => url.searchParams.append('team_id', id));
+        url.searchParams.append('team_id', teamFilter.join(','));
       }
       if (propertyFilters.length > 0) {
         url.searchParams.append('props', JSON.stringify(propertyFilters));
@@ -65,15 +65,15 @@ export const SearchView: React.FC = () => {
     const startTime = performance.now();
     console.log(`[SearchView] Starting search for "${query}" (grouped: ${isGrouped}, global: ${isGlobal})...`);
     try {
-      const url = new URL('http://127.0.0.1:3001/search/global');
+      const url = new URL('http://127.0.0.1:3002/search/global');
       if (query) url.searchParams.append('q', query);
       if (isGrouped) url.searchParams.append('grouped', 'true');
       if (isGlobal) url.searchParams.append('global_group', 'true');
       if (typeFilter.length > 0) {
-        typeFilter.forEach(t => url.searchParams.append('type', t));
+        url.searchParams.append('type', typeFilter.join(','));
       }
       if (teamFilter.length > 0) {
-        teamFilter.forEach(id => url.searchParams.append('team_id', id));
+        url.searchParams.append('team_id', teamFilter.join(','));
       }
       if (propertyFilters.length > 0) {
         url.searchParams.append('props', JSON.stringify(propertyFilters));
@@ -86,7 +86,7 @@ export const SearchView: React.FC = () => {
       const duration = (performance.now() - startTime).toFixed(1);
       console.log(`[SearchView] Search completed in ${duration}ms. Results: ${data.nodes?.length || 0}`);
       setResults(data.nodes || []);
-      
+
       // Fetch stats only when search completes
       fetchStats(signal);
     } catch (e: any) {
@@ -103,10 +103,10 @@ export const SearchView: React.FC = () => {
   useEffect(() => {
     const controller = new AbortController();
     // A search is considered active if we have a text query OR any filter selected
-    const hasActiveFilters = 
-      (query && query.length >= 2) || 
-      typeFilter.length > 0 || 
-      teamFilter.length > 0 || 
+    const hasActiveFilters =
+      (query && query.length >= 2) ||
+      typeFilter.length > 0 ||
+      teamFilter.length > 0 ||
       propertyFilters.length > 0;
 
     if (hasActiveFilters) {
@@ -116,9 +116,8 @@ export const SearchView: React.FC = () => {
         controller.abort();
       };
     } else {
-      // Clear results ONLY if absolutely no query and no filters are present
       setResults([]);
-      setStats(null);
+      fetchStats(controller.signal);
     }
 
     return () => {
@@ -149,7 +148,7 @@ export const SearchView: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      <SearchFilters 
+      <SearchFilters
         query={query}
         setQuery={setQuery}
         typeFilter={typeFilter}
@@ -176,13 +175,13 @@ export const SearchView: React.FC = () => {
                 Search Results {results.length > 0 && `(${results.length})`}
               </Text>
             </Flex>
-            
+
             {propertyFilters.length > 0 && (
               <Flex gap={6} style={{ marginTop: 'var(--space-3)', flexWrap: 'wrap' }}>
                 {propertyFilters.map(p => (
-                  <Badge 
-                    key={`${p.key}-${p.value}`} 
-                    variant="blue" 
+                  <Badge
+                    key={`${p.key}-${p.value}`}
+                    variant="blue"
                     style={{ cursor: 'pointer', height: '18px', padding: '0 6px', fontSize: '10px' }}
                     onClick={() => removePropertyFilter(p.key, p.value)}
                   >
@@ -195,9 +194,9 @@ export const SearchView: React.FC = () => {
               </Flex>
             )}
           </div>
-          
+
           <div className={styles.resultsContent}>
-            <GroupedResultsTree 
+            <GroupedResultsTree
               results={results}
               isLoading={isLoading}
               selectedNode={selectedNode}
@@ -212,17 +211,17 @@ export const SearchView: React.FC = () => {
           <ScrollArea>
             {selectedNode ? (
               <div className={styles.detailsContent}>
-                <NodeDetails 
-                  node={selectedNode} 
-                  aggregateStats={stats} 
+                <NodeDetails
+                  node={selectedNode}
+                  aggregateStats={stats}
                   onPropertyClick={togglePropertyFilter}
                   activePropertyFilters={propertyFilters}
                 />
               </div>
             ) : stats ? (
               <div className={styles.detailsContent}>
-                <SearchStats 
-                  stats={stats} 
+                <SearchStats
+                  stats={stats}
                   onPropertyClick={togglePropertyFilter}
                   activeFilters={propertyFilters}
                 />

@@ -1,0 +1,1 @@
+D:\Figma\ plugins\Components\ dashboard\v1\packages\rust-scanner\target\x86_64-pc-windows-msvc\release\rust_scanner.dll: D:\Figma\ plugins\Components\ dashboard\v1\packages\rust-scanner\build.rs D:\Figma\ plugins\Components\ dashboard\v1\packages\rust-scanner\src\lib.rs

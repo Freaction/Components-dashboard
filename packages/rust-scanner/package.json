@@ -1,0 +1,22 @@
+{
+  "name": "rust-scanner",
+  "version": "1.0.0",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "napi": {
+    "binaryName": "rust-scanner",
+    "targets": [
+      "x86_64-pc-windows-msvc"
+    ]
+  },
+  "scripts": {
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.0.0-alpha.50"
+  },
+  "engines": {
+    "node": ">= 10"
+  }
+}

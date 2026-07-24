@@ -11,7 +11,7 @@ export const SettingsView: React.FC = () => {
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch('http://localhost:3001/settings');
+      const res = await fetch('http://127.0.0.1:3002/settings');
       const data = await res.json();
       if (data.FIGMA_TOKEN) {
         setToken(data.FIGMA_TOKEN);
@@ -24,7 +24,7 @@ export const SettingsView: React.FC = () => {
   const saveToken = async () => {
     setStatus('Saving...');
     try {
-      const res = await fetch('http://localhost:3001/settings', {
+      const res = await fetch('http://127.0.0.1:3002/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: 'FIGMA_TOKEN', value: token.trim() }),

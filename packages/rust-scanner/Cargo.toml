@@ -1,0 +1,22 @@
+[package]
+name = "rust-scanner"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = { version = "2.16.8", default-features = false, features = ["napi4", "async"] }
+napi-derive = "2.16.8"
+
+reqwest = { version = "0.12.5", features = ["json", "stream"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rusqlite = { version = "0.31.0", features = ["bundled"] }
+tokio = { version = "1.38", features = ["full"] }
+futures-util = "0.3.30"
+bytes = "1.6.0"
+
+[build-dependencies]
+napi-build = "2.1.3"

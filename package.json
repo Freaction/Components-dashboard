@@ -6,8 +6,9 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "concurrently -n \"API,WEB\" -c \"magenta,cyan\" \"npm run dev --workspace=api\" \"npm run dev --workspace=web\"",
-    "clean": "rimraf node_modules apps/api/node_modules apps/web/node_modules"
+    "dev": "dev.bat",
+    "dev:start": "concurrently -n \"RUST,WEB\" -c \"magenta,cyan\" \"cargo run --manifest-path apps/api-rust/Cargo.toml\" \"npm run dev --workspace=web\"",
+    "clean": "rimraf node_modules apps/web/node_modules"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

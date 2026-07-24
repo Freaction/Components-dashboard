@@ -24,7 +24,7 @@ export const TreeNode: React.FC<{
     if (node.has_children && !isExpanded && children.length === 0) {
       setIsLoading(true);
       try {
-        const res = await fetch(`http://localhost:3001/nodes?session_id=${sessionId}&parent_id=${node.id}`);
+        const res = await fetch(`http://127.0.0.1:3002/nodes?session_id=${sessionId}&parent_id=${node.id}`);
         const data = await res.json();
         setChildren(data.nodes || []);
       } catch (e) {
