@@ -1,2 +1,0 @@
-nodes_search TABLE EXISTS.
-Count of rows in nodes_search: Some(23396025)

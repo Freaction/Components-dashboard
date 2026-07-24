@@ -3,13 +3,17 @@ node_modules/
 .npm
 dist/
 build/
+target/
 
 # Database
 *.sqlite
 *.sqlite-journal
 *.sqlite-shm
 *.sqlite-wal
+data/
 apps/api/data/
+apps/api-rust/data/
+apps/api-rust/target/
 
 # Environment
 .env
