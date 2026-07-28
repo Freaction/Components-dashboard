@@ -1,0 +1,111 @@
+@import './theme.css';
+
+/* Reset and Globals */
+button,
+input,
+select {
+  font-family: var(--font-family);
+  font-weight: var(--font-weight-regular);
+  background-color: var(--color-bg-surface) !important;
+  color: var(--color-text-main) !important;
+  border: 1px solid var(--color-border) !important;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-main);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 5px;
+  border: 2px solid var(--color-bg-main);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background: var(--color-bg-main);
+  color: var(--color-text-main);
+}
+
+.app-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Main Content Layout */
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.content-toolbar {
+  padding: var(--spacing-xs) 0 0 0;
+  background: var(--color-bg-surface);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.content-toolbar input {
+  margin: 0 24px 16px 24px;
+  width: auto;
+}
+
+.content-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.tokens-section h2 {
+  margin: 0 0 8px 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-main);
+}
+
+.path-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.path-breadcrumb .path-text {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  background: var(--color-bg-muted);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.path-breadcrumb .token-count {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  opacity: 0.7;
+}
+
+.no-tokens {
+  text-align: center;
+  padding: 40px;
+  color: var(--color-text-muted);
+}

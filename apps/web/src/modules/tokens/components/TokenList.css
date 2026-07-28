@@ -1,0 +1,262 @@
+/* Tokens Content */
+.token-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.token-group {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.group-title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-main);
+  border-bottom: 1px solid var(--color-border-strong);
+  padding-bottom: 8px;
+}
+
+.token-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.token-card {
+  background: var(--color-bg-surface);
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: auto;
+  max-width: 400px;
+}
+
+.token-card--bad {
+  border-color: var(--color-danger);
+}
+
+.token-path {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  color: var(--color-text-main);
+  font-weight: var(--font-weight-bold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
+.token-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.token-value code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+  background: transparent;
+  padding: 0;
+}
+
+.color-chip {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  background-image:
+    linear-gradient(45deg, #eee 25%, transparent 25%),
+    linear-gradient(-45deg, #eee 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #eee 75%),
+    linear-gradient(-45deg, transparent 75%, #eee 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
+  background-color: white;
+}
+
+.color-chip-inner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+.token-alias-badge {
+  font-size: 10px;
+  font-weight: var(--font-weight-regular);
+  color: var(--color-primary);
+  background: var(--color-primary-active);
+  border-radius: 3px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+/* Dependency highlighting */
+.token-card--selected {
+  border-color: var(--color-text-muted);
+  border-width: 2px;
+  background: var(--color-bg-muted);
+}
+
+.token-card--dep-refs {
+  border-color: var(--color-dep-uses);
+  border-width: 2px;
+  background: color-mix(in srgb, var(--color-dep-uses) 5%, white);
+}
+
+.token-card--dep-dependents {
+  border-color: var(--color-dep-used-by);
+  border-width: 2px;
+  background: color-mix(in srgb, var(--color-dep-used-by) 5%, white);
+}
+
+.token-card--dep-both {
+  border-color: var(--color-dep-both);
+  border-width: 2px;
+  background: color-mix(in srgb, var(--color-dep-both) 5%, white);
+}
+
+/* Token Statuses */
+.token-card.diff-added {
+  border: 2px solid var(--color-success);
+  background: rgba(34, 197, 94, 0.04);
+}
+
+.token-card.diff-modified {
+  border: 2px solid var(--color-warn);
+  background: rgba(234, 179, 8, 0.04);
+}
+
+.token-card.diff-removed {
+  border: 2px solid var(--color-danger);
+  background: rgba(239, 68, 68, 0.04);
+}
+
+.token-diff-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  margin-left: 8px;
+  font-weight: var(--font-weight-regular);
+  color: white;
+}
+
+.token-diff-badge--added {
+  background: var(--color-success);
+}
+
+.token-diff-badge--modified {
+  background: var(--color-warn);
+}
+
+.token-diff-badge--removed {
+  background: var(--color-danger);
+}
+
+.token-diff-comparison {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--color-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.diff-old {
+  color: var(--color-danger);
+  font-weight: bold;
+}
+
+.diff-new {
+  color: var(--color-success);
+  font-weight: bold;
+}
+
+.diff-arrow {
+  opacity: 0.5;
+}
+
+/* Top 20 Rankings */
+.token-rank-badge {
+  background: linear-gradient(135deg, #ffd700, #ff8c00);
+  color: #000;
+  font-size: 10px;
+  font-weight: var(--font-weight-regular);
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-left: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.token-usage-stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--color-border);
+  font-size: 13px;
+}
+
+.usage-label {
+  color: var(--color-text-muted);
+}
+
+.usage-suffix {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.usage-count {
+  font-weight: bold;
+  color: var(--color-primary);
+  background: rgba(var(--color-primary-rgb), 0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+/* Unified Token Hints */
+.token-hint {
+  font-size: 12px;
+  font-weight: var(--font-weight-regular);
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1;
+}
+
+.token-hint--danger {
+  color: var(--color-danger);
+}
+
+.token-hint--warn {
+  color: var(--color-warn);
+}
+
+.token-hint--info {
+  color: var(--color-text-muted);
+}

@@ -111,6 +111,33 @@ pub async fn run_scan(pool: DbPool, team_id: String, session_id: String, token: 
             }).await.unwrap();
         }
 
+        let file_variables = crate::figma::get_file_variables(&file_key, &token).await.unwrap_or_else(|_| serde_json::Value::Null);
+        if let Some(meta) = file_variables.get("meta") {
+            if let Some(variables) = meta.get("variables").and_then(|v| v.as_object()) {
+                let pool_m = pool.clone();
+                let fk = file_key.clone();
+                let sid = session_id.clone();
+                let vars = variables.clone();
+                tokio::task::spawn_blocking(move || {
+                    let mut conn = pool_m.get().unwrap();
+                    let tx = conn.transaction().unwrap();
+                    let mut stmt = tx.prepare("INSERT OR REPLACE INTO meta_variables (file_key, variable_id, key, name, description, values_by_mode, resolved_type, session_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").unwrap();
+                    for (_id, var) in &vars {
+                        let id = var.get("id").and_then(|i| i.as_str()).unwrap_or("");
+                        let key = var.get("key").and_then(|k| k.as_str()).unwrap_or("");
+                        if key.is_empty() { continue; }
+                        let name = var.get("name").and_then(|n| n.as_str()).unwrap_or("");
+                        let description = var.get("description").and_then(|d| d.as_str()).unwrap_or("");
+                        let values_by_mode = var.get("valuesByMode").map(|v| v.to_string()).unwrap_or_default();
+                        let resolved_type = var.get("resolvedType").and_then(|r| r.as_str()).unwrap_or("");
+                        stmt.execute(rusqlite::params![&fk, id, key, name, description, values_by_mode, resolved_type, &sid]).ok();
+                    }
+                    drop(stmt);
+                    tx.commit().unwrap();
+                }).await.unwrap();
+            }
+        }
+
         let pages = document.get("children").and_then(|c| c.as_array()).cloned().unwrap_or_default();
         let mut components_map = serde_json::Value::Object(serde_json::Map::new());
         if let Some(c) = file_data.get("components") {

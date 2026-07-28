@@ -48,9 +48,9 @@ pub async fn ds_usage(
                         END
                     ) as rn
                 FROM nodes c
+                JOIN ref_session rs ON c.session_id = rs.id
                 LEFT JOIN nodes p ON c.parent_id = p.id AND c.session_id = p.session_id AND p.type = 'COMPONENT_SET'
-                WHERE c.session_id = (SELECT id FROM ref_session)
-                  AND c.type IN ('COMPONENT', 'VARIANT', 'COMPONENT_SET')
+                WHERE c.type IN ('COMPONENT', 'VARIANT', 'COMPONENT_SET')
                   AND COALESCE(p.name, c.name) NOT LIKE '.%'
                   AND COALESCE(p.name, c.name) NOT LIKE '\\_%' ESCAPE '\\'
                   AND COALESCE(p.name, c.name) NOT LIKE '%=%'
@@ -62,8 +62,8 @@ pub async fn ds_usage(
             usages AS (
                 SELECT i.published_key, COUNT(*) as usage_count
                 FROM nodes i
-                WHERE i.session_id = (SELECT id FROM target_session) 
-                  AND i.type = 'INSTANCE'
+                JOIN target_session ts ON i.session_id = ts.id
+                WHERE i.type = 'INSTANCE'
                   AND i.published_key IS NOT NULL AND i.published_key != ''
                 GROUP BY i.published_key
             )

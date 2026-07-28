@@ -56,3 +56,17 @@ pub async fn get_figma_nodes(
 
     Err("Figma API Error: Exceeded retry limit for Rate Limit (429)".to_string())
 }
+pub async fn get_file_variables(file_key: &str, token: &str) -> Result<Value, String> {
+    let url = format!("https://api.figma.com/v1/files/{}/variables/local", file_key);
+    for attempt in 1..=5 {
+        let res = CLIENT.get(&url).header("X-Figma-Token", token).send().await.map_err(|e| format!("Request failed: {}", e))?;
+        if res.status().as_u16() == 429 {
+            tokio::time::sleep(Duration::from_secs(attempt * 2)).await;
+            continue;
+        }
+        if res.status() == 404 { return Ok(Value::Null); }
+        if !res.status().is_success() { return Err(format!("Figma API Error {}: {}", res.status(), res.text().await.unwrap_or_default())); }
+        return Ok(res.json().await.map_err(|e| format!("Failed to parse JSON: {}", e))?);
+    }
+    Err("Figma API Error: Exceeded retry limit for Rate Limit (429)".to_string())
+}

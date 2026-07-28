@@ -1,0 +1,35 @@
+.view-switcher-container {
+  height: var(--control-height);
+  padding: 4px;
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-main);
+  justify-content: flex-start;
+  align-items: center;
+  gap: 4px;
+  display: inline-flex;
+  box-sizing: border-box;
+}
+
+.view-switcher-item {
+  flex: 1;
+  height: 100%;
+  padding: 0 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+  white-space: nowrap;
+}
+
+.view-switcher-item.active {
+  background: var(--color-bg-surface);
+  box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.06);
+  color: var(--color-text-main);
+}
+
+

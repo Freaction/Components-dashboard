@@ -3,9 +3,10 @@ import { SettingsView } from './views/SettingsView';
 import { TeamsView, TeamsProvider } from './modules/Teams/index.tsx';
 import { SearchView } from './modules/Search';
 import { DSKitStatsView } from './views/DSKitStatsView';
+import { TokensDashboard } from './modules/tokens/index';
 
 function App() {
-  const [tab, setTab] = useState<'teams' | 'search' | 'settings' | 'ds-stats'>('teams');
+  const [tab, setTab] = useState<'teams' | 'search' | 'settings' | 'ds-stats' | 'tokens'>('teams');
 
   return (
     <TeamsProvider>
@@ -37,6 +38,13 @@ function App() {
             </button>
 
             <button 
+              onClick={() => setTab('tokens')} 
+              className={tab === 'tokens' ? 'active' : ''}
+            >
+              Tokens Analysis
+            </button>
+
+            <button 
               onClick={() => setTab('settings')} 
               className={tab === 'settings' ? 'active' : ''}
             >
@@ -49,6 +57,7 @@ function App() {
           {tab === 'teams' && <TeamsView />}
           {tab === 'search' && <SearchView />}
           {tab === 'ds-stats' && <DSKitStatsView />}
+          {tab === 'tokens' && <TokensDashboard />}
           {tab === 'settings' && <SettingsView />}
         </main>
       </div>
@@ -57,5 +66,4 @@ function App() {
 }
 
 export default App;
-
 

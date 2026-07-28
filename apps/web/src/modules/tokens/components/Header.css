@@ -1,0 +1,66 @@
+/* Header */
+.app-header {
+  background: var(--color-bg-surface);
+  border-bottom: 1px solid var(--color-border);
+  padding: 0 24px;
+  height: var(--header-height);
+}
+
+.header-top {
+  height: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.view-switcher-wrapper {
+  margin-left: 8px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: var(--control-height);
+}
+
+.header-actions .ui-button {
+  height: var(--control-height);
+  padding: 0 16px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+  box-sizing: border-box;
+}
+
+.mode-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 0 16px;
+  scrollbar-width: none;
+  flex: 1;
+  justify-content: center;
+}
+
+.mode-tabs button {
+  white-space: nowrap;
+  padding: 6px 12px;
+  border: none;
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-main);
+  font-weight: var(--font-weight-regular);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+
+.mode-tabs button.active {
+  background: var(--color-primary);
+  color: white;
+}

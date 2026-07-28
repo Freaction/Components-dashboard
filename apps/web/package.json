@@ -5,6 +5,9 @@
     "dev": "vite --open"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.101.4",
+    "axios": "^1.18.1",
+    "json-diff-ts": "^4.10.4",
     "lucide-react": "^1.14.0",
     "react": "latest",
     "react-dom": "latest",

@@ -8,6 +8,7 @@ use crate::AppState;
 mod global;
 mod stats;
 mod usage;
+mod tokens;
 pub mod models;
 
 pub fn router() -> Router<Arc<AppState>> {
@@ -15,4 +16,5 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/global", get(global::search_global))
         .route("/global/stats", get(stats::search_global_stats))
         .route("/ds-usage", get(usage::ds_usage))
+        .route("/tokens-usage", get(tokens::tokens_usage))
 }

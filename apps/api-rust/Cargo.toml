@@ -19,3 +19,4 @@ uuid = { version = "1.8", features = ["v4"] }
 dotenvy = "0.15"
 tracing = "0.1"
 tracing-subscriber = "0.3"
+rustc-hash = "1.1"

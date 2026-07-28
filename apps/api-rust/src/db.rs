@@ -6,8 +6,20 @@ pub type DbPool = Pool<SqliteConnectionManager>;
 
 pub fn init_db() -> DbPool {
     dotenvy::from_filename(".env").ok();
+    dotenvy::from_filename("../../.env").ok();
     
-    let db_path_str = std::env::var("DATABASE_URL").unwrap_or_else(|_| "data/main.sqlite".to_string());
+    let mut db_path_str = std::env::var("DATABASE_URL").unwrap_or_else(|_| "data/main.sqlite".to_string());
+    let target_path = std::path::PathBuf::from(&db_path_str);
+    
+    // If the database path doesn't exist or is tiny (< 100KB), check if ../../data/main.sqlite or data/main.sqlite in root exists
+    if !target_path.exists() || std::fs::metadata(&target_path).map(|m| m.len()).unwrap_or(0) < 100_000 {
+        if std::path::Path::new("../../data/main.sqlite").exists() {
+            db_path_str = "../../data/main.sqlite".to_string();
+        } else if std::path::Path::new("data/main.sqlite").exists() {
+            db_path_str = "data/main.sqlite".to_string();
+        }
+    }
+    
     let db_path = std::path::PathBuf::from(db_path_str);
     
     if let Some(parent) = db_path.parent() {
@@ -18,13 +30,22 @@ pub fn init_db() -> DbPool {
 
     let manager = SqliteConnectionManager::file(db_path)
         .with_init(|c| {
-            c.busy_timeout(std::time::Duration::from_millis(30000)).ok();
-            c.execute_batch("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;")
+            c.busy_timeout(std::time::Duration::from_secs(600)).ok();
+            c.execute_batch("
+                PRAGMA foreign_keys=ON; 
+                PRAGMA journal_mode=WAL;
+                PRAGMA synchronous=NORMAL;
+                PRAGMA mmap_size=2147483648; 
+                PRAGMA cache_size=-500000;
+                PRAGMA temp_store=MEMORY;
+            ")
         });
     
     // We create a pool. For SQLite WAL mode, readers can be concurrent.
     let pool = r2d2::Pool::builder()
-        .max_size(10) // 10 concurrent connections
+        .max_size(5)
+        .min_idle(Some(1))
+        .connection_timeout(std::time::Duration::from_secs(600))
         .build(manager)
         .expect("Failed to create pool");
 
@@ -36,14 +57,12 @@ pub fn init_db() -> DbPool {
 }
 
 fn setup_schema(conn: &Connection) {
-    conn.execute_batch(
+    println!("⚙️ Initializing base tables...");
+    if let Err(e) = conn.execute_batch(
         r#"
         PRAGMA foreign_keys = ON;
         PRAGMA journal_mode = WAL;
         PRAGMA busy_timeout = 30000;
-        
-        -- The rest of the schema is already initialized by Node.js, 
-        -- but we run it anyway for safety (IF NOT EXISTS).
         
         CREATE TABLE IF NOT EXISTS teams (
             id TEXT PRIMARY KEY,
@@ -115,11 +134,43 @@ fn setup_schema(conn: &Connection) {
             FOREIGN KEY(session_id) REFERENCES scan_sessions(id) ON DELETE CASCADE
         );
 
-        -- Performance Indexes
-        CREATE INDEX IF NOT EXISTS idx_nodes_session ON nodes(session_id, type);
-        CREATE INDEX IF NOT EXISTS idx_nodes_parent ON nodes(parent_id);
-        CREATE INDEX IF NOT EXISTS idx_nodes_published_key ON nodes(published_key);
-        CREATE INDEX IF NOT EXISTS idx_nodes_component_id ON nodes(component_id);
-        "#,
-    ).expect("Failed to initialize database schema");
+        CREATE TABLE IF NOT EXISTS meta_variables (
+            file_key TEXT NOT NULL,
+            variable_id TEXT NOT NULL,
+            key TEXT NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT,
+            values_by_mode TEXT,
+            resolved_type TEXT,
+            session_id TEXT NOT NULL,
+            PRIMARY KEY (file_key, key, session_id),
+            FOREIGN KEY(session_id) REFERENCES scan_sessions(id) ON DELETE CASCADE
+        );
+        "#
+    ) {
+        println!("❌ TABLES EXECUTION ERROR: {:?}", e);
+    }
+
+    let indexes = vec![
+        ("idx_nodes_session", "CREATE INDEX IF NOT EXISTS idx_nodes_session ON nodes(session_id, type);"),
+        ("idx_nodes_parent", "CREATE INDEX IF NOT EXISTS idx_nodes_parent ON nodes(parent_id);"),
+        ("idx_nodes_published_key", "CREATE INDEX IF NOT EXISTS idx_nodes_published_key ON nodes(published_key);"),
+        ("idx_nodes_component_id", "CREATE INDEX IF NOT EXISTS idx_nodes_component_id ON nodes(component_id);"),
+        ("idx_node_metadata_session", "CREATE INDEX IF NOT EXISTS idx_node_metadata_session ON node_metadata(session_id);"),
+        ("idx_node_metadata_variables", "CREATE INDEX IF NOT EXISTS idx_node_metadata_variables ON node_metadata(session_id) WHERE bound_variables_json IS NOT NULL;"),
+        ("idx_nodes_ghosts", "CREATE INDEX IF NOT EXISTS idx_nodes_ghosts ON nodes(session_id) WHERE is_ghost = 1;"),
+        ("idx_nodes_instances", "CREATE INDEX IF NOT EXISTS idx_nodes_instances ON nodes(session_id, published_key) WHERE type = 'INSTANCE' AND published_key IS NOT NULL;"),
+    ];
+
+    println!("📊 Checking and building indexes (this may take a while for large databases)...");
+    for (i, (name, sql)) in indexes.iter().enumerate() {
+        println!("⏳ [{}/{}] Verifying/Building index: {}...", i + 1, indexes.len(), name);
+        let start_time = std::time::Instant::now();
+        if let Err(e) = conn.execute(sql, []) {
+            println!("❌ ERROR on index {}: {:?}", name, e);
+        } else {
+            println!("✅ Index {} ready! (took {:?})", name, start_time.elapsed());
+        }
+    }
+    println!("🎉 All indexes are built and ready!");
 }
