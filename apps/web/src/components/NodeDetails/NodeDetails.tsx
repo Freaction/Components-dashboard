@@ -86,17 +86,17 @@ export const NodeDetails: React.FC<NodeDetailsProps> = ({
 
             {isLoading ? (
                 <Text variant="xs" color="tertiary" className={styles.loadingText}>Loading metadata...</Text>
-            ) : metadata && (
+            ) : (
                 <>
                     <PropertiesSection
-                        propsJson={metadata.properties_json}
+                        propsJson={metadata?.properties_json}
                         aggregateStats={aggregateStats}
                         activePropertyFilters={activePropertyFilters}
                         onPropertyClick={onPropertyClick}
                     />
-                    <JsonSection title="Figma Tokens (Bound Variables)" json={metadata.bound_variables_json} />
-                    <JsonSection title="Fills (Colors)" json={metadata.fills_json} />
-                    <JsonSection title="Strokes" json={metadata.strokes_json} />
+                    <JsonSection title="Figma Tokens (Bound Variables)" json={metadata?.bound_variables_json} />
+                    <JsonSection title="Fills (Colors)" json={metadata?.fills_json} />
+                    <JsonSection title="Strokes" json={metadata?.strokes_json} />
                 </>
             )}
 

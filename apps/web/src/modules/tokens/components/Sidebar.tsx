@@ -5,6 +5,7 @@ import { ChevronRight, ChevronDown, FileJson } from 'lucide-react';
 import { ViewMode } from '../App';
 import { getAllTokensFromNode, isVarying, isRedundant, isOrphan } from '../utils/metrics';
 import { DiffResult } from '../utils/diff';
+import { isFoundationPath } from '../utils/token-refs';
 
 interface SidebarProps {
   tree: Record<string, TreeNode>;
@@ -122,8 +123,19 @@ const Sidebar: React.FC<SidebarProps> = ({ tree, selectedPath, onSelectPath, vie
         if (metrics?.hardcodedPaths?.has(path)) { include = true; s = 'warn'; }
       } else if (viewMode === 'unused') {
         if (metrics?.unusedPaths?.has(path)) { include = true; s = 'warn'; }
+      } else if (viewMode === 'team-usage' && usageData) {
+        if (t.figmaKey && usageData[t.figmaKey] > 0) { include = true; s = 'good'; }
       } else if (viewMode === 'zero-usage' && usageData) {
-        if (t.figmaKey && !usageData[t.figmaKey]) { include = true; s = 'warn'; }
+        if (t.figmaKey) {
+          const usedInComponents = usageData[t.figmaKey] > 0;
+          if (isFoundationPath(path)) {
+            const unusedInSemantics = metrics?.unusedPaths?.has(path) ?? false;
+            if (!usedInComponents && unusedInSemantics) { include = true; s = 'warn'; }
+          } else if (!usedInComponents) {
+            include = true;
+            s = 'warn';
+          }
+        }
       } else if (viewMode === 'diff' && diffMap) {
         const diffStatus = diffMap.tokenDiffs[path]?.status;
         if (diffStatus && diffStatus !== 'unchanged') {
@@ -159,7 +171,7 @@ const Sidebar: React.FC<SidebarProps> = ({ tree, selectedPath, onSelectPath, vie
     }
 
     return { pathCounts: counts, pathStatuses: statuses };
-  }, [tree, viewMode, globalTokenMap, modeCount, metrics, diffMap, topTokens]);
+  }, [tree, viewMode, globalTokenMap, modeCount, metrics, diffMap, topTokens, usageData]);
 
   if (!tree) return null;
 

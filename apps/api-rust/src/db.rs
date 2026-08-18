@@ -32,11 +32,12 @@ pub fn init_db() -> DbPool {
         .with_init(|c| {
             c.busy_timeout(std::time::Duration::from_secs(600)).ok();
             c.execute_batch("
-                PRAGMA foreign_keys=ON; 
+                PRAGMA foreign_keys=ON;
+                PRAGMA recursive_triggers=ON;
                 PRAGMA journal_mode=WAL;
                 PRAGMA synchronous=NORMAL;
-                PRAGMA mmap_size=2147483648; 
-                PRAGMA cache_size=-500000;
+                PRAGMA mmap_size=2147483648;
+                PRAGMA cache_size=-196608;
                 PRAGMA temp_store=MEMORY;
             ")
         });
@@ -68,6 +69,11 @@ fn setup_schema(conn: &Connection) {
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS team_files (
@@ -108,7 +114,7 @@ fn setup_schema(conn: &Connection) {
             page_name TEXT,
             is_ghost BOOLEAN DEFAULT 0,
             published_key TEXT,
-            PRIMARY KEY (id, session_id, file_key),
+            PRIMARY KEY (id, session_id),
             FOREIGN KEY(session_id) REFERENCES scan_sessions(id) ON DELETE CASCADE
         );
 
@@ -121,7 +127,7 @@ fn setup_schema(conn: &Connection) {
             fills_json TEXT,
             strokes_json TEXT,
             bound_variables_json TEXT,
-            PRIMARY KEY (node_id, session_id, file_key),
+            PRIMARY KEY (node_id, session_id),
             FOREIGN KEY(session_id) REFERENCES scan_sessions(id) ON DELETE CASCADE
         );
 
@@ -146,6 +152,27 @@ fn setup_schema(conn: &Connection) {
             PRIMARY KEY (file_key, key, session_id),
             FOREIGN KEY(session_id) REFERENCES scan_sessions(id) ON DELETE CASCADE
         );
+
+        CREATE TABLE IF NOT EXISTS session_keys (
+            session_no INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL UNIQUE
+        );
+
+        CREATE TABLE IF NOT EXISTS node_props (
+            session_no INTEGER NOT NULL,
+            node_id TEXT NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            PRIMARY KEY (session_no, node_id, key)
+        ) WITHOUT ROWID;
+
+        CREATE TABLE IF NOT EXISTS migration_state (
+            name TEXT PRIMARY KEY,
+            cursor INTEGER NOT NULL DEFAULT 0,
+            rows_done INTEGER NOT NULL DEFAULT 0,
+            props_written INTEGER NOT NULL DEFAULT 0,
+            finished INTEGER NOT NULL DEFAULT 0
+        );
         "#
     ) {
         println!("❌ TABLES EXECUTION ERROR: {:?}", e);
@@ -153,6 +180,7 @@ fn setup_schema(conn: &Connection) {
 
     let indexes = vec![
         ("idx_nodes_session", "CREATE INDEX IF NOT EXISTS idx_nodes_session ON nodes(session_id, type);"),
+        ("idx_nodes_session_parent", "CREATE INDEX IF NOT EXISTS idx_nodes_session_parent ON nodes(session_id, parent_id);"),
         ("idx_nodes_parent", "CREATE INDEX IF NOT EXISTS idx_nodes_parent ON nodes(parent_id);"),
         ("idx_nodes_published_key", "CREATE INDEX IF NOT EXISTS idx_nodes_published_key ON nodes(published_key);"),
         ("idx_nodes_component_id", "CREATE INDEX IF NOT EXISTS idx_nodes_component_id ON nodes(component_id);"),
@@ -160,6 +188,7 @@ fn setup_schema(conn: &Connection) {
         ("idx_node_metadata_variables", "CREATE INDEX IF NOT EXISTS idx_node_metadata_variables ON node_metadata(session_id) WHERE bound_variables_json IS NOT NULL;"),
         ("idx_nodes_ghosts", "CREATE INDEX IF NOT EXISTS idx_nodes_ghosts ON nodes(session_id) WHERE is_ghost = 1;"),
         ("idx_nodes_instances", "CREATE INDEX IF NOT EXISTS idx_nodes_instances ON nodes(session_id, published_key) WHERE type = 'INSTANCE' AND published_key IS NOT NULL;"),
+        ("idx_node_props_lookup", "CREATE INDEX IF NOT EXISTS idx_node_props_lookup ON node_props(session_no, key, value);"),
     ];
 
     println!("📊 Checking and building indexes (this may take a while for large databases)...");

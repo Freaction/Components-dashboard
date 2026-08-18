@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { File } from '../../components/types';
-import { extractFileKey, extractFileName } from '../../../utils/figmaUtils';
+import { extractFileName } from '../../../utils/figmaUtils';
 
 export const useTeamFiles = (selectedTeam: string | null) => {
     const [files, setFiles] = useState<File[]>([]);
@@ -22,13 +22,13 @@ export const useTeamFiles = (selectedTeam: string | null) => {
 
     const addFile = useCallback(async () => {
         if (!newFileKey || !selectedTeam) return;
-        const fileKey = extractFileKey(newFileKey);
-        const fileName = extractFileName(newFileKey) || 'Manual Link';
-        await fetch(`http://127.0.0.1:3002/teams/${selectedTeam}/files`, {
+        const url = newFileKey.trim();
+        const response = await fetch(`http://127.0.0.1:3002/teams/${selectedTeam}/files`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ file_key: fileKey, file_name: fileName }),
+            body: JSON.stringify({ url, file_name: extractFileName(url) }),
         });
+        if (!response.ok) return;
         setNewFileKey('');
         fetchTeamDetails();
     }, [newFileKey, selectedTeam, fetchTeamDetails]);

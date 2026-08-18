@@ -4,7 +4,7 @@ import { stripFigmaId, formatPropertyValue, formatCount } from '../../utils/figm
 import styles from './NodeDetails.module.css';
 
 interface PropertiesSectionProps {
-    propsJson: string;
+    propsJson?: string;
     aggregateStats: any;
     activePropertyFilters: Array<{ key: string, value: string }>;
     onPropertyClick?: (key: string, value: string) => void;

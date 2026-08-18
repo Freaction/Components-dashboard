@@ -104,7 +104,7 @@ export const useSearch = () => {
             };
         } else {
             setResults([]);
-            fetchStats(controller.signal);
+            setStats(null);
         }
 
         return () => {

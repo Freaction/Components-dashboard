@@ -4,10 +4,16 @@ version = "0.1.0"
 edition = "2021"
 default-run = "api-rust"
 
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+incremental = false
+
 [dependencies]
 axum = "0.7"
 tokio = { version = "1.37", features = ["full"] }
-tower-http = { version = "0.5", features = ["cors", "trace"] }
+tower-http = { version = "0.5", features = ["cors", "trace", "compression-gzip"] }
 rusqlite = { version = "0.31", features = ["bundled"] }
 lazy_static = "1.5"
 r2d2 = "0.8"

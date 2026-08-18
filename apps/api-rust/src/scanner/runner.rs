@@ -1,13 +1,38 @@
 use crate::db::DbPool;
-use crate::scanner::state::{RUNNING_SESSIONS, PAUSE_REQUESTS};
-use crate::scanner::page_processor::process_page;
+use crate::scanner::page_prefetch::{start as start_prefetch, PageRequest};
+use crate::scanner::page_processor::{process_page, PageContext};
+use crate::scanner::state::{PAUSE_REQUESTS, RUNNING_SESSIONS};
 use std::collections::HashSet;
+
+fn is_auth_error(error: &str) -> bool {
+    error.contains("401 Unauthorized")
+        || error.contains("Token expired")
+        || error.contains("Invalid token")
+}
+
+async fn fail_session(pool: &DbPool, session_id: &str) {
+    let pool = pool.clone();
+    let session_id = session_id.to_string();
+    tokio::task::spawn_blocking(move || {
+        let conn = pool.get().unwrap();
+        conn.execute(
+            "UPDATE scan_sessions SET status = 'failed' WHERE id = ?",
+            [&session_id],
+        )
+        .ok();
+    })
+    .await
+    .unwrap();
+}
 
 pub async fn run_scan(pool: DbPool, team_id: String, session_id: String, token: String) {
     {
         let mut running = RUNNING_SESSIONS.lock().unwrap();
         if running.contains(&session_id) {
-            tracing::warn!("[Scanner] Session {} is already scanning! Ignoring duplicate trigger.", session_id);
+            tracing::warn!(
+                "[Scanner] Session {} is already scanning! Ignoring duplicate trigger.",
+                session_id
+            );
             return;
         }
         running.insert(session_id.clone());
@@ -22,20 +47,25 @@ pub async fn run_scan(pool: DbPool, team_id: String, session_id: String, token: 
         }
     }
     let _guard = SessionGuard(session_id.clone());
-    
+
     let pool_clone = pool.clone();
     let sid = session_id.clone();
     tokio::task::spawn_blocking(move || {
         let conn = pool_clone.get().unwrap();
-        let _ = conn.execute("UPDATE scan_sessions SET status = 'processing' WHERE id = ?", [&sid]);
-    }).await.unwrap();
+        let _ = conn.execute(
+            "UPDATE scan_sessions SET status = 'processing' WHERE id = ?",
+            [&sid],
+        );
+    })
+    .await
+    .unwrap();
 
     let files = {
         let pool_c = pool.clone();
         let tid = team_id.clone();
         tokio::task::spawn_blocking(move || {
             let conn = pool_c.get().unwrap();
-            let mut stmt = conn.prepare("SELECT file_key, file_name, last_modified FROM team_files WHERE team_id = ?").unwrap();
+            let mut stmt = conn.prepare("SELECT file_key, MAX(COALESCE(file_name, '')), MAX(last_modified) FROM team_files WHERE team_id = ? GROUP BY file_key").unwrap();
             let iter = stmt.query_map([&tid], |row| {
                 Ok((
                     row.get::<_, String>(0)?,
@@ -43,31 +73,35 @@ pub async fn run_scan(pool: DbPool, team_id: String, session_id: String, token: 
                     row.get::<_, Option<String>>(2)?,
                 ))
             }).unwrap();
-            let mut res = Vec::new();
-            let mut seen_keys = std::collections::HashSet::new();
-            for f in iter { 
-                let (fk, fnm, lm) = f.unwrap();
-                if seen_keys.insert(fk.clone()) {
-                    res.push((fk, fnm, lm));
-                }
-            }
-            res
+            iter.filter_map(Result::ok).collect::<Vec<_>>()
         }).await.unwrap()
     };
 
-    tracing::info!("[Scanner] Starting session {}. Total files: {}", session_id, files.len());
+    tracing::info!(
+        "[Scanner] Starting session {}. Total files: {}",
+        session_id,
+        files.len()
+    );
 
     let mut processed: HashSet<String> = {
         let pool_c = pool.clone();
         let sid = session_id.clone();
         tokio::task::spawn_blocking(move || {
             let conn = pool_c.get().unwrap();
-            let mut stmt = conn.prepare("SELECT id FROM nodes WHERE session_id = ? AND type = 'CANVAS'").unwrap();
+            let mut stmt = conn
+                .prepare("SELECT id FROM nodes WHERE session_id = ? AND type = 'CANVAS'")
+                .unwrap();
             let iter = stmt.query_map([&sid], |r| r.get::<_, String>(0)).unwrap();
             let mut set = HashSet::new();
-            for p in iter { if let Ok(n) = p { set.insert(n); } }
+            for p in iter {
+                if let Ok(n) = p {
+                    set.insert(n);
+                }
+            }
             set
-        }).await.unwrap()
+        })
+        .await
+        .unwrap()
     };
 
     let total_files = files.len();
@@ -75,11 +109,21 @@ pub async fn run_scan(pool: DbPool, team_id: String, session_id: String, token: 
 
     for (file_key, file_name, _last_modified) in files {
         files_processed += 1;
-        tracing::info!("[Scanner] Checking file ({}/{}): {}", files_processed, total_files, file_name);
-        
+        tracing::info!(
+            "[Scanner] Checking file ({}/{}): {}",
+            files_processed,
+            total_files,
+            file_name
+        );
+
         let file_data = match crate::figma::get_figma_nodes(&file_key, "", Some(1), &token).await {
             Ok(d) => d,
             Err(e) => {
+                if is_auth_error(&e) {
+                    tracing::error!("Stopping session {}: {}", session_id, e);
+                    fail_session(&pool, &session_id).await;
+                    return;
+                }
                 if e.contains("404") {
                     tracing::warn!("Failed to get file {}: {}", file_key, e);
                     let pool_err = pool.clone();
@@ -100,18 +144,35 @@ pub async fn run_scan(pool: DbPool, team_id: String, session_id: String, token: 
             Some(d) => d,
             None => continue,
         };
-        
+
         if let Some(new_name) = file_data.get("name").and_then(|n| n.as_str()) {
             let pool_c = pool.clone();
             let fk = file_key.clone();
             let nn = new_name.to_string();
             tokio::task::spawn_blocking(move || {
                 let conn = pool_c.get().unwrap();
-                conn.execute("UPDATE team_files SET file_name = ? WHERE file_key = ? AND file_name != ?", rusqlite::params![&nn, &fk, &nn]).ok();
-            }).await.unwrap();
+                conn.execute(
+                    "UPDATE team_files SET file_name = ? WHERE file_key = ? AND file_name != ?",
+                    rusqlite::params![&nn, &fk, &nn],
+                )
+                .ok();
+            })
+            .await
+            .unwrap();
         }
 
-        let file_variables = crate::figma::get_file_variables(&file_key, &token).await.unwrap_or_else(|_| serde_json::Value::Null);
+        let file_variables = match crate::figma::get_file_variables(&file_key, &token).await {
+            Ok(variables) => variables,
+            Err(e) if is_auth_error(&e) => {
+                tracing::error!("Stopping session {}: {}", session_id, e);
+                fail_session(&pool, &session_id).await;
+                return;
+            }
+            Err(e) => {
+                tracing::warn!("Failed to get variables for file {}: {}", file_key, e);
+                serde_json::Value::Null
+            }
+        };
         if let Some(meta) = file_variables.get("meta") {
             if let Some(variables) = meta.get("variables").and_then(|v| v.as_object()) {
                 let pool_m = pool.clone();
@@ -138,53 +199,79 @@ pub async fn run_scan(pool: DbPool, team_id: String, session_id: String, token: 
             }
         }
 
-        let pages = document.get("children").and_then(|c| c.as_array()).cloned().unwrap_or_default();
+        let pages = document
+            .get("children")
+            .and_then(|c| c.as_array())
+            .into_iter()
+            .flatten()
+            .filter_map(|page| {
+                let id = page.get("id")?.as_str()?.to_string();
+                if processed.contains(&id) {
+                    return None;
+                }
+                Some(PageRequest {
+                    id,
+                    name: page
+                        .get("name")
+                        .and_then(|name| name.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                })
+            })
+            .collect::<Vec<_>>();
         let mut components_map = serde_json::Value::Object(serde_json::Map::new());
         if let Some(c) = file_data.get("components") {
             components_map = c.clone();
         }
-
-        for page in pages {
-            let page_id = page.get("id").and_then(|id| id.as_str()).unwrap_or("");
-            let page_name = page.get("name").and_then(|n| n.as_str()).unwrap_or("");
-            
+        drop(file_data);
+        let context = PageContext {
+            pool: pool.clone(),
+            file_key: file_key.clone(),
+            file_name: file_name.clone(),
+            session_id: session_id.clone(),
+            token: token.clone(),
+            components: components_map,
+        };
+        let mut prefetched = start_prefetch(file_key.clone(), token.clone(), pages);
+        while let Some(page) = prefetched.recv().await {
             let is_paused = {
                 let mut pause = PAUSE_REQUESTS.lock().unwrap();
                 pause.remove(&session_id)
             };
-            
+
             if is_paused {
                 tracing::info!("[Scanner] Pause requested for session {}", session_id);
                 let pool_c = pool.clone();
                 let sid = session_id.clone();
                 tokio::task::spawn_blocking(move || {
                     let conn = pool_c.get().unwrap();
-                    let _ = conn.execute("UPDATE scan_sessions SET status = 'paused' WHERE id = ?", [&sid]);
-                }).await.unwrap();
+                    let _ = conn.execute(
+                        "UPDATE scan_sessions SET status = 'paused' WHERE id = ?",
+                        [&sid],
+                    );
+                })
+                .await
+                .unwrap();
                 return;
             }
-
-            process_page(
-                pool.clone(),
-                file_key.clone(),
-                file_name.clone(),
-                page_id.to_string(),
-                page_name.to_string(),
-                session_id.clone(),
-                token.clone(),
-                components_map.clone(),
-                &mut processed
-            ).await;
+            let page_id = page.request.id.clone();
+            if process_page(&context, page).await {
+                processed.insert(page_id);
+            }
         }
     }
 
     let sid = session_id.clone();
     tokio::task::spawn_blocking(move || {
         let conn = pool.get().unwrap();
-        
-        // Auto-resolve published keys for external instances
-        tracing::info!("[Scanner] Auto-resolving missing published_keys for session {}...", sid);
-        let updated = conn.execute("
+
+        tracing::info!(
+            "[Scanner] Auto-resolving missing published_keys for session {}...",
+            sid
+        );
+        let updated = conn
+            .execute(
+                "
             UPDATE nodes 
             SET published_key = (
                 SELECT master.published_key 
@@ -197,12 +284,24 @@ pub async fn run_scan(pool: DbPool, team_id: String, session_id: String, token: 
             WHERE session_id = ?
               AND type = 'INSTANCE' 
               AND (published_key IS NULL OR published_key = '')
-        ", [&sid]).unwrap_or(0);
-        
-        tracing::info!("[Scanner] ✅ Resolved published_keys for {} instances locally.", updated);
+        ",
+                [&sid],
+            )
+            .unwrap_or(0);
 
-        conn.execute("UPDATE scan_sessions SET status = 'completed' WHERE id = ?", [&sid]).ok();
-    }).await.unwrap();
+        tracing::info!(
+            "[Scanner] ✅ Resolved published_keys for {} instances locally.",
+            updated
+        );
+
+        conn.execute(
+            "UPDATE scan_sessions SET status = 'completed' WHERE id = ?",
+            [&sid],
+        )
+        .ok();
+    })
+    .await
+    .unwrap();
 
     tracing::info!("[Scanner] Session {} completed!", session_id);
 }

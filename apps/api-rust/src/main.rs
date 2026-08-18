@@ -2,18 +2,19 @@ use axum::{
     routing::get,
     Router,
 };
+use tower_http::compression::CompressionLayer;
 use tower_http::cors::{Any, CorsLayer};
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 mod db;
 mod models;
+mod props;
 mod figma;
 mod scanner;
 mod deleter;
 mod controllers;
 
-// The shared state for our API containing the DB pool
 #[derive(Clone)]
 pub struct AppState {
     pub db_pool: db::DbPool,
@@ -21,15 +22,12 @@ pub struct AppState {
 
 #[tokio::main]
 async fn main() {
-    // Initialize tracing (logging)
     tracing_subscriber::fmt::init();
 
     println!("🚀 Starting Rust API Server...");
 
-    // Initialize Database
     let db_pool = db::init_db();
     
-    // Reset orphaned sessions
     {
         let conn = db_pool.get().unwrap();
         let _ = conn.execute(
@@ -40,24 +38,27 @@ async fn main() {
     
     let state = Arc::new(AppState { db_pool });
 
-    // Setup CORS
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
         .allow_headers(Any);
 
-    // Setup Router
     let app = Router::new()
         .route("/", get(|| async { "API is running" }))
         .nest("/teams", controllers::teams::router())
         .nest("/nodes", controllers::nodes::router())
         .nest("/search", controllers::search::router())
+        .nest("/settings", controllers::settings::router())
+        .layer(CompressionLayer::new())
         .layer(cors)
         .with_state(state);
 
 
-    // Bind to 0.0.0.0:3002 (we use 3002 to test alongside Node.js if needed)
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3002));
+    let port = std::env::var("API_RUST_PORT")
+        .ok()
+        .and_then(|value| value.parse::<u16>().ok())
+        .unwrap_or(3002);
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
     println!("🚀 API Server listening on {}", addr);
     
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();

@@ -8,6 +8,8 @@ pub struct SearchGlobalQuery {
     pub grouped: Option<String>,
     pub global_group: Option<String>,
     pub props: Option<String>,
+    pub sort: Option<String>,
+    pub limit: Option<i64>,
 }
 
 #[derive(Deserialize)]

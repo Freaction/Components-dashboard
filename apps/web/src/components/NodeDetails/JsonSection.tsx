@@ -4,7 +4,7 @@ import styles from './NodeDetails.module.css';
 
 interface JsonSectionProps {
     title: string;
-    json: string;
+    json?: string;
 }
 
 export const JsonSection: React.FC<JsonSectionProps> = ({ title, json }) => {

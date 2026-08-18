@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "dev": "dev.bat",
-    "dev:start": "concurrently -n \"RUST,WEB\" -c \"magenta,cyan\" \"cargo run --manifest-path apps/api-rust/Cargo.toml\" \"npm run dev --workspace=web\"",
+    "dev:start": "concurrently -n \"RUST,WEB\" -c \"magenta,cyan\" \"cargo run --release --manifest-path apps/api-rust/Cargo.toml\" \"npm run dev --workspace=web\"",
     "clean": "rimraf node_modules apps/web/node_modules"
   },
   "devDependencies": {

@@ -145,6 +145,7 @@ async fn get_files(
 #[derive(Deserialize)]
 struct AddFileReq {
     url: String,
+    file_name: Option<String>,
 }
 
 async fn add_file(
@@ -152,22 +153,32 @@ async fn add_file(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<AddFileReq>,
 ) -> Json<serde_json::Value> {
-    // extract key from url
-    let parts: Vec<&str> = payload.url.split("/file/").collect();
-    let file_key = if parts.len() > 1 {
-        parts[1].split('/').next().unwrap_or("").to_string()
-    } else {
-        payload.url
-    };
+    let file_key = payload.url
+        .split(['?', '#'])
+        .next()
+        .unwrap_or("")
+        .split('/')
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .windows(2)
+        .find(|parts| matches!(parts[0], "file" | "design"))
+        .map(|parts| parts[1].to_string())
+        .unwrap_or_else(|| payload.url.trim().to_string());
 
     if file_key.is_empty() {
         return Json(serde_json::json!({ "error": "Invalid URL" }));
     }
 
+    let file_name = payload.file_name
+        .filter(|name| !name.trim().is_empty())
+        .unwrap_or_else(|| file_key.clone());
     let pool = state.db_pool.clone();
     tokio::task::spawn_blocking(move || {
         let conn = pool.get().unwrap();
-        conn.execute("INSERT INTO team_files (team_id, file_key) VALUES (?, ?)", [&id, &file_key]).unwrap();
+        conn.execute(
+            "INSERT INTO team_files (team_id, file_key, file_name) VALUES (?, ?, ?)",
+            [&id, &file_key, &file_name],
+        ).unwrap();
     }).await.unwrap();
 
     Json(serde_json::json!({ "success": true }))

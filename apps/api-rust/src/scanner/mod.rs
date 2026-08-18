@@ -1,5 +1,7 @@
-pub mod parser;
+pub mod frame_processor;
+pub mod page_prefetch;
 pub mod page_processor;
+pub mod parser;
 pub mod runner;
 pub mod state;
 

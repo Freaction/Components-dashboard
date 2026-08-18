@@ -6,6 +6,7 @@ import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import MainContent from './components/MainContent';
 import { useDisplayTokens } from './hooks/useDisplayTokens';
+import { useAggregatedTokensUsage } from './hooks/useAggregatedTokensUsage';
 import { buildGlobalTokenMap, computeMetrics, getMostUsedTokens, buildSnapshot } from './utils/metrics';
 import { getDiffMap } from './utils/diff';
 import { EmptyState, Button } from './components/ui';
@@ -21,33 +22,9 @@ function App() {
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('explorer');
-  const [usageData, setUsageData] = useState<Record<string, number>>({});
 
-  const { selectedTeam } = useTeams() || { selectedTeam: null };
-
-  useEffect(() => {
-    if (selectedTeam) {
-      fetch(`http://127.0.0.1:3002/search/tokens-usage?team_id=${selectedTeam}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.usage) {
-            const normalizedUsage: Record<string, number> = {};
-            for (const [key, count] of Object.entries(data.usage)) {
-              const parts = key.split('/');
-              if (parts.length === 2 && parts[0].startsWith('VariableID:')) {
-                // Extract the globally unique 40-character figmaKey
-                const newKey = parts[0].replace('VariableID:', '');
-                normalizedUsage[newKey] = (normalizedUsage[newKey] || 0) + Number(count);
-              } else {
-                normalizedUsage[key] = (normalizedUsage[key] || 0) + Number(count);
-              }
-            }
-            setUsageData(normalizedUsage);
-          }
-        })
-        .catch(err => console.error("Failed to fetch tokens usage:", err));
-    }
-  }, [selectedTeam]);
+  const { teams } = useTeams();
+  const usageData = useAggregatedTokensUsage(teams);
 
   useEffect(() => {
     if (tokensData) {
